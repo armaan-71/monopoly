@@ -7,20 +7,24 @@ import { GameState } from '@/types/game';
 
 export function useRealtimeGame(roomId: string) {
     const setGameState = useGameStore((state) => state.setGameState);
+    const setRoomCode = useGameStore((state) => state.setRoomCode);
 
     useEffect(() => {
         if (!roomId) return;
 
-        // 1. Initial Fetch (optional, if we want to ensure latest state on mount)
+        // 1. Initial Fetch
         const fetchFullState = async () => {
             const { data } = await supabase
                 .from('rooms')
-                .select('game_state')
+                .select('code, game_state')
                 .eq('id', roomId)
                 .single();
 
-            if (data?.game_state) {
-                setGameState(data.game_state as unknown as GameState);
+            if (data) {
+                if (data.code) setRoomCode(data.code);
+                if (data.game_state) {
+                    setGameState(data.game_state as unknown as GameState);
+                }
             }
         };
         fetchFullState();
@@ -39,7 +43,6 @@ export function useRealtimeGame(roomId: string) {
                 (payload) => {
                     const newData = payload.new as { game_state: GameState };
                     if (newData.game_state) {
-                        console.log('Realtime update received:', newData.game_state.lastAction);
                         setGameState(newData.game_state);
                     }
                 }
@@ -49,5 +52,5 @@ export function useRealtimeGame(roomId: string) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [roomId, setGameState]);
+    }, [roomId, setGameState, setRoomCode]);
 }

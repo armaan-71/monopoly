@@ -1,66 +1,103 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
 
-export default function Home() {
+import { Box, Button, TextField, Typography, Paper, Container } from '@mui/material';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LobbyPage() {
+  const router = useRouter();
+  const [playerName, setPlayerName] = useState('');
+  const [roomCode, setRoomCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleCreateRoom = async () => {
+    if (!playerName) return alert('Enter name first');
+    setLoading(true);
+    try {
+      // 1. Create Room
+      const res = await fetch('/api/rooms/create', { method: 'POST' });
+      const room = await res.json();
+
+      // 2. Join as Host
+      await joinRoom(room.code, true);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  };
+
+  const joinRoom = async (code: string, isFromCreate = false) => {
+    // 3. Join API
+    const res = await fetch('/api/rooms/join', {
+      method: 'POST',
+      body: JSON.stringify({
+        roomCode: code,
+        playerName,
+        avatarId: 'top-hat', // Default for now
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const playerId = data.player.id;
+      // Store identity in localStorage so we remember who we are in the room
+      localStorage.setItem(`monopoly_player_${data.room.id}`, playerId);
+      router.push(`/game/${data.room.id}`);
+    } else {
+      alert('Failed to join');
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Paper sx={{ p: 4, width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Typography variant="h3" align="center" fontWeight="bold">
+          MONOPOLY
+        </Typography>
+
+        <TextField
+          label="Your Name"
+          fullWidth
+          value={playerName}
+          onChange={(e) => setPlayerName(e.target.value)}
         />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <Box sx={{ borderTop: '1px solid #eee' }} />
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="h6">Join Existing Game</Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              label="Room Code"
+              size="small"
+              fullWidth
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <Button
+              variant="contained"
+              disabled={loading || !playerName || !roomCode}
+              onClick={() => joinRoom(roomCode)}
+            >
+              Joins
+            </Button>
+          </Box>
+        </Box>
+
+        <Typography align="center" variant="body2" color="text.secondary">- OR -</Typography>
+
+        <Button
+          variant="contained"
+          color="secondary"
+          size="large"
+          disabled={loading || !playerName}
+          onClick={handleCreateRoom}
+          fullWidth
+        >
+          Start New Game
+        </Button>
+      </Paper>
+    </Container>
   );
 }

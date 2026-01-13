@@ -3,14 +3,17 @@ import { GameState, PlayerState, PropertyState } from '@/types/game';
 import { devtools } from 'zustand/middleware';
 
 interface GameStore extends GameState {
+    code: string | null;
     // Actions
     setGameState: (state: Partial<GameState>) => void;
+    setRoomCode: (code: string) => void;
     updatePlayer: (playerId: string, updates: Partial<PlayerState>) => void;
     updateProperty: (propertyIndex: number, updates: Partial<PropertyState>) => void;
     resetGame: () => void;
 }
 
-const INITIAL_STATE: Omit<GameStore, 'setGameState' | 'updatePlayer' | 'updateProperty' | 'resetGame'> = {
+const INITIAL_STATE: Omit<GameStore, 'setGameState' | 'setRoomCode' | 'updatePlayer' | 'updateProperty' | 'resetGame'> = {
+    code: null,
     turnIndex: 0,
     players: [],
     properties: {},
@@ -25,6 +28,8 @@ export const useGameStore = create<GameStore>()(
         ...INITIAL_STATE,
 
         setGameState: (newState) => set((state) => ({ ...state, ...newState })),
+
+        setRoomCode: (code) => set({ code }),
 
         updatePlayer: (playerId, updates) =>
             set((state) => ({
