@@ -6,7 +6,7 @@ A multiplayer real-estate trading game built with modern web tech.
 
 ## Tech Stack
 
-- **Framework**: Next.js 14+ (App Router)
+- **Framework**: Next.js 15+ (App Router)
 - **Language**: TypeScript
 - **State Management**: Zustand (Client-side), Supabase Realtime (Server-sync)
 - **Database**: Supabase (PostgreSQL)
