@@ -74,6 +74,31 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                     {/* Right Panel: Controls */}
                     <Box>
                         <GameControls roomId={roomId} playerId={playerId} />
+
+                        {/* Start Game Button (Only for simple lobby logic, anyone can start for MVP) */}
+                        {/* Ideally we check if players[0].id === playerId but we need to trust local identity */}
+                        {!useGameStore((s) => s.isGameStarted) && players.length > 0 && (
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                                <button
+                                    onClick={async () => {
+                                        await fetch('/api/game/start', {
+                                            method: 'POST',
+                                            body: JSON.stringify({ roomId })
+                                        });
+                                    }}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: '#4caf50',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    START GAME
+                                </button>
+                            </Box>
+                        )}
                     </Box>
                 </Box>
             </Container>
