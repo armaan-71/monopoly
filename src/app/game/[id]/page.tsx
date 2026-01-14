@@ -6,6 +6,7 @@ import Board from '@/components/board/Board';
 import GameControls from '@/components/game/GameControls';
 import PropertyDashboard from '@/components/game/PropertyDashboard';
 import GameInfoPanel from '@/components/game/GameInfoPanel';
+import PropertyDetailsDialog from '@/components/game/PropertyDetailsDialog';
 import { useRealtimeGame } from '@/hooks/useRealtimeGame';
 import { useGameStore } from '@/store/gameStore';
 
@@ -22,6 +23,12 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
         if (stored) setPlayerId(stored);
     }, [roomId]);
 
+    const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+
+    const handlePropertyClick = (propertyId: number) => {
+        setSelectedPropertyId(propertyId);
+    };
+
     return (
         <Box sx={{
             minHeight: '100vh',
@@ -29,6 +36,12 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
             color: 'text.primary',
             p: { xs: 1, md: 2 },
         }}>
+            <PropertyDetailsDialog
+                open={selectedPropertyId !== null}
+                onClose={() => setSelectedPropertyId(null)}
+                propertyId={selectedPropertyId}
+            />
+
             <Container maxWidth="xl" disableGutters sx={{ height: '100%' }}>
 
                 {/* Main 3-Column Layout */}
@@ -57,7 +70,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                         order: { xs: 1, lg: 2 },
                         position: 'relative'
                     }}>
-                        <Board>
+                        <Board onPropertyClick={handlePropertyClick}>
                             <GameControls roomId={roomId} playerId={playerId} />
 
                             {/* Start Game Button (MVP) inside Board */}
@@ -104,7 +117,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                         overflowY: 'auto' // Internal scroll if needed
                     }}>
                         {/* My Dashboard (Cash + Properties) */}
-                        <PropertyDashboard playerId={playerId} />
+                        <PropertyDashboard playerId={playerId} onPropertyClick={handlePropertyClick} />
                     </Box>
 
                 </Box>

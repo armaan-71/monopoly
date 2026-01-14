@@ -5,7 +5,7 @@ import PropertyTile from './PropertyTile';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { useGameStore } from '@/store/gameStore';
 
-export default function Board({ children }: { children?: React.ReactNode }) {
+export default function Board({ children, onPropertyClick }: { children?: React.ReactNode; onPropertyClick?: (id: number) => void }) {
     const { players, properties } = useGameStore();
 
     // Helper to find which players are on a specific tile index
@@ -25,7 +25,21 @@ export default function Board({ children }: { children?: React.ReactNode }) {
     const rightCol = [31, 32, 33, 34, 35, 36, 37, 38, 39];
 
     const renderTile = (index: number) => (
-        <Box key={index} sx={{ width: '100%', height: '100%' }}>
+        <Box
+            key={index}
+            sx={{
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer',
+                transition: 'transform 0.1s',
+                '&:hover': {
+                    transform: 'scale(1.02)',
+                    zIndex: 10,
+                    boxShadow: 4
+                }
+            }}
+            onClick={() => onPropertyClick?.(index)}
+        >
             <PropertyTile
                 config={BOARD_CONFIG[index]}
                 state={properties[index]}

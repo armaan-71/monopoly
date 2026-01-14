@@ -10,10 +10,9 @@ import { useGameStore } from '@/store/gameStore';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { PropertyGroup } from '@/types/game';
 
-export default function PropertyDashboard({ playerId }: { playerId: string }) {
+export default function PropertyDashboard({ playerId, onPropertyClick }: { playerId: string; onPropertyClick?: (id: number) => void }) {
     const theme = useTheme();
     const { players, properties, code } = useGameStore();
-    const [selectedPropId, setSelectedPropId] = useState<number | null>(null);
 
     const me = players.find(p => p.id === playerId);
     // Find all properties owned by me
@@ -21,9 +20,6 @@ export default function PropertyDashboard({ playerId }: { playerId: string }) {
         const state = properties[config.id];
         return state && state.owner === playerId;
     });
-
-    const handleOpen = (id: number) => setSelectedPropId(id);
-    const handleClose = () => setSelectedPropId(null);
 
     const getPropertyState = (id: number) => properties[id];
 
@@ -77,7 +73,7 @@ export default function PropertyDashboard({ playerId }: { playerId: string }) {
                             return (
                                 <Box
                                     key={prop.id}
-                                    onClick={() => handleOpen(prop.id)}
+                                    onClick={() => onPropertyClick?.(prop.id)}
                                     sx={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -108,40 +104,6 @@ export default function PropertyDashboard({ playerId }: { playerId: string }) {
                     </Box>
                 )}
             </Paper>
-
-            {/* Rent Card / Mortgage Dialog */}
-            <Dialog open={selectedPropId !== null} onClose={handleClose} fullWidth maxWidth="xs">
-                {selectedPropId !== null && (() => {
-                    const prop = BOARD_CONFIG.find(p => p.id === selectedPropId);
-                    if (!prop) return null;
-                    const state = getPropertyState(selectedPropId);
-                    const isMortgaged = state?.isMortgaged;
-                    const color = getGroupColor(prop.group);
-
-                    return (
-                        <>
-                            <DialogTitle sx={{ bgcolor: color, color: '#fff', textAlign: 'center', py: 3 }}>
-                                {prop.name} ({prop.id})
-                            </DialogTitle>
-                            <DialogContent sx={{ pt: 3 }}>
-                                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                                    <Typography variant="body2" color="text.secondary">Running Rent</Typography>
-                                    <Typography variant="h4" fontWeight="bold">
-                                        ${isMortgaged ? 0 : (prop.group === 'special' ? 'Dice x N' : (prop.rent?.[state?.houses || 0] || 'Unknown'))}
-                                    </Typography>
-                                </Box>
-
-                                {/* Future Mortgage Actions Here */}
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                    <Button fullWidth variant="outlined" color="warning" disabled>
-                                        Mortgage (Coming soon)
-                                    </Button>
-                                </Box>
-                            </DialogContent>
-                        </>
-                    );
-                })()}
-            </Dialog>
         </Box>
     );
 }
