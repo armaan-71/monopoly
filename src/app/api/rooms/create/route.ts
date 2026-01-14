@@ -20,6 +20,7 @@ const INITIAL_GAME_STATE: GameState = {
     dice: [1, 1],
     isGameStarted: false,
     winner: null,
+    log: ['Game created'],
 };
 
 export async function POST() {

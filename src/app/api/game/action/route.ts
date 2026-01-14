@@ -42,6 +42,7 @@ export async function POST(request: Request) {
                 const dice = rollDice();
                 const diceTotal = dice[0] + dice[1];
                 const player = newState.players[playerIndex];
+                const auditEvents: string[] = [];
 
                 // Check Jail
                 if (player.isInJail) {
@@ -50,25 +51,21 @@ export async function POST(request: Request) {
                         player.isInJail = false;
                         player.jailTurns = 0;
                         message = `${player.name} rolled doubles and got out of Jail!`;
+                        auditEvents.push(message);
                     } else if (player.jailTurns >= 3) {
-                        // Force pay $50 or bail logic here. For MVP, we'll just let them out next turn or similar.
-                        // Let's simplified: If 3rd turn failed, stay in jail one more wait?
-                        // Official rules: pay $50. Let's force pay $50 if have money.
                         if (player.money >= 50) {
                             player.money -= 50;
                             player.isInJail = false;
                             message = `${player.name} paid $50 bail after 3 fails.`;
+                            auditEvents.push(message);
                         } else {
-                            // Bankruptcy in jail edge case... 
                             message = `${player.name} is stuck in Jail.`;
-                            // Don't move
+                            // Not logging 'stuck' to save space, unless desired.
                         }
                     } else {
                         message = `${player.name} is in Jail. Rolled ${diceTotal}.`;
-                        // End here, cannot move
                         newState.lastAction = message;
-                        newState.dice = dice; // Show dice
-                        // Auto end turn? Usually player has to click End Turn.
+                        newState.dice = dice;
                         break;
                     }
                 }
@@ -85,6 +82,7 @@ export async function POST(request: Request) {
                     if (didPassGo(oldPosition, newPosition)) {
                         player.money += 200;
                         message = `${player.name} rolled ${diceTotal} and passed GO!`;
+                        auditEvents.push(`${player.name} passed GO and collected $200`);
                     } else {
                         message = `${player.name} rolled ${diceTotal}`;
                     }
@@ -101,8 +99,10 @@ export async function POST(request: Request) {
                             const ownerIndex = newState.players.findIndex(p => p.id === propertyState.owner);
                             if (ownerIndex !== -1) {
                                 newState.players[ownerIndex].money += rent;
+                                const rentMsg = `Paid $${rent} rent to ${newState.players[ownerIndex].name}`;
+                                message += `. ${rentMsg}.`;
+                                auditEvents.push(`${player.name} paid $${rent} rent to ${newState.players[ownerIndex].name}`);
                             }
-                            message += `. Paid $${rent} rent to ${newState.players[ownerIndex].name}.`;
                         }
                     }
 
@@ -110,6 +110,8 @@ export async function POST(request: Request) {
                     const { moneyChange, sendToJail, message: tileMsg } = handleSpecialTile(player, newPosition);
                     if (tileMsg) {
                         message += ` ${tileMsg}`;
+                        // tileMsg is like "Sent to Jail!" or "Paid $200..."
+                        auditEvents.push(`${player.name} ${tileMsg.charAt(0).toLowerCase() + tileMsg.slice(1)}`);
                     }
                     if (moneyChange !== 0) {
                         player.money += moneyChange;
@@ -122,6 +124,10 @@ export async function POST(request: Request) {
                 }
 
                 newState.lastAction = message;
+                if (!newState.log) newState.log = [];
+                if (auditEvents.length > 0) {
+                    newState.log.push(...auditEvents);
+                }
                 break;
             }
 
@@ -146,7 +152,10 @@ export async function POST(request: Request) {
                         isMortgaged: false
                     };
 
-                    newState.lastAction = `${player.name} bought ${propertyDef.name}`;
+                    const msg = `${player.name} bought ${propertyDef.name}`;
+                    newState.lastAction = msg;
+                    if (!newState.log) newState.log = [];
+                    newState.log.push(msg);
                 } else {
                     return NextResponse.json({ error: 'Cannot buy this property' }, { status: 400 });
                 }
@@ -156,7 +165,9 @@ export async function POST(request: Request) {
             case 'END_TURN': {
                 const nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
                 newState.turnIndex = nextIndex;
-                newState.lastAction = `${gameState.players[playerIndex].name} ended their turn`;
+                const msg = `${gameState.players[playerIndex].name} ended their turn`;
+                newState.lastAction = msg;
+                // No log push for end turn
                 break;
             }
 

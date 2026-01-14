@@ -43,6 +43,7 @@ export interface GameState {
     players: PlayerState[];
     properties: Record<number, PropertyState>; // Key is board index (0-39)
     lastAction: string;
+    log: string[]; // Audit trail of all actions
     dice: [number, number];
     isGameStarted: boolean; // Lobby vs Playing
     winner: PlayerId | null;

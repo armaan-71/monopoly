@@ -2,9 +2,8 @@
 
 import { Box, Button, Typography, Paper } from '@mui/material';
 import { useGameStore } from '@/store/gameStore';
-import { useState } from 'react';
-import { didPassGo, canBuyProperty } from '@/utils/gameLogic'; // Helper import if needed, but logic is mostly server-side or duplicate
-// We'll trust the server response, but can use helpers for UI state enabling/disabling
+import { useState, useMemo } from 'react';
+import { canBuyProperty } from '@/utils/gameLogic';
 
 interface GameControlsProps {
     roomId: string;
@@ -18,6 +17,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         properties,
         dice,
         lastAction,
+        log,
         isGameStarted
     } = useGameStore();
 
@@ -27,6 +27,19 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
     const currentPlayerIndex = players.findIndex(p => p.id === playerId);
     const isMyTurn = currentPlayerIndex !== -1 && turnIndex === currentPlayerIndex;
     const myPlayer = players[currentPlayerIndex];
+
+    const hasRolled = useMemo(() => {
+        if (!isMyTurn) return false;
+        if (!lastAction) return false;
+        const action = lastAction.toLowerCase();
+        return action.includes('rolled') || action.includes('bought') || action.includes('rent') || action.includes('tax') || action.includes('jail') || action.includes('sent');
+    }, [isMyTurn, lastAction]);
+
+    const canBuy = useMemo(() => {
+        if (!isMyTurn || !hasRolled || !myPlayer) return false;
+        const pos = myPlayer.position;
+        return canBuyProperty(pos, myPlayer.money, properties[pos]?.owner);
+    }, [isMyTurn, hasRolled, myPlayer, properties]);
 
     const handleAction = async (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN') => {
         if (!roomId || !playerId) return;
@@ -48,78 +61,91 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         }
     };
 
-    if (!isGameStarted) {
-        return (
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-                <Typography>Waiting for game to start...</Typography>
-            </Paper>
-        );
-    }
+    if (!isGameStarted) return <Typography align="center" variant="overline" color="text.secondary">Waiting for game to start...</Typography>;
 
-    if (!myPlayer) {
-        return (
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-                <Typography>Spectating</Typography>
-            </Paper>
-        );
-    }
-
-    // Determine which buttons to show
-    // (Simplified state machine for MVP: If turn just started, show Roll. If rolled, show Buy/End.)
-    // We can track "hasRolled" in local component state if we reset it on turn change, 
-    // or store it in DB. For MVP, we'll just allow actions if it's my turn. 
-    // A robust implementation would store `phase` in GameState (e.g. 'ROLLING', 'TRADING', 'ENDING')
+    if (!myPlayer) return <Typography align="center" variant="overline" color="text.secondary">Spectating</Typography>;
 
     return (
-        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="h6" align="center">
-                {isMyTurn ? "IT'S YOUR TURN" : `Waiting for ${players[turnIndex]?.name}...`}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', maxWidth: '300px', mx: 'auto' }}>
+            <Typography variant="h6" align="center" sx={{ fontWeight: 800, color: isMyTurn ? 'primary.main' : 'text.disabled' }}>
+                {isMyTurn ? "YOUR TURN" : `${players[turnIndex]?.name}'s Turn`}
             </Typography>
 
+            {/* Shared Board State Views (Dice + Action) */}
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                <Box sx={{ border: '2px solid #333', p: 2, borderRadius: 2 }}>
-                    {dice[0]}
-                </Box>
-                <Box sx={{ border: '2px solid #333', p: 2, borderRadius: 2 }}>
-                    {dice[1]}
-                </Box>
+                <Paper elevation={0} sx={{ border: '2px solid rgba(255,255,255,0.1)', p: 1.5, borderRadius: 2, minWidth: 50, textAlign: 'center', bgcolor: 'transparent' }}>
+                    <Typography variant="h4" fontWeight="bold">{dice[0]}</Typography>
+                </Paper>
+                <Paper elevation={0} sx={{ border: '2px solid rgba(255,255,255,0.1)', p: 1.5, borderRadius: 2, minWidth: 50, textAlign: 'center', bgcolor: 'transparent' }}>
+                    <Typography variant="h4" fontWeight="bold">{dice[1]}</Typography>
+                </Paper>
             </Box>
 
-            <Typography variant="body2" align="center" color="text.secondary">
+            <Typography variant="body2" align="center" sx={{ color: 'text.secondary', minHeight: '1.5em' }}>
                 {lastAction}
             </Typography>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                <Button
-                    variant="contained"
-                    onClick={() => handleAction('ROLL_DICE')}
-                    disabled={!isMyTurn || loading}
-                >
-                    Roll Dice
-                </Button>
-                <Button
-                    variant="outlined"
-                    onClick={() => handleAction('BUY_PROPERTY')}
-                    disabled={!isMyTurn || loading}
-                >
-                    Buy Property
-                </Button>
-                <Button
-                    variant="contained"
-                    color="warning"
-                    onClick={() => handleAction('END_TURN')}
-                    disabled={!isMyTurn || loading}
-                    sx={{ gridColumn: '1 / -1' }}
-                >
-                    End Turn
-                </Button>
-            </Box>
+            {/* Controls Layer - Only visible to active player */}
+            {isMyTurn && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {!hasRolled && (
+                        <Button
+                            variant="contained"
+                            size="large"
+                            onClick={() => handleAction('ROLL_DICE')}
+                            disabled={loading}
+                            sx={{ boxShadow: 'none', py: 1.5 }}
+                        >
+                            Roll Dice
+                        </Button>
+                    )}
 
-            <Box sx={{ mt: 2, borderTop: '1px solid #eee', pt: 2 }}>
-                <Typography variant="subtitle2">My Stats</Typography>
-                <Typography>Cash: ${myPlayer.money}</Typography>
-                <Typography>Position: {myPlayer.position}</Typography>
+                    {hasRolled && (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: canBuy ? '1fr 1fr' : '1fr', gap: 1.5 }}>
+                            {canBuy && (
+                                <Button
+                                    variant="outlined"
+                                    size="large"
+                                    onClick={() => handleAction('BUY_PROPERTY')}
+                                    disabled={loading}
+                                >
+                                    Buy
+                                </Button>
+                            )}
+                            <Button
+                                variant="contained"
+                                color="error"
+                                size="large"
+                                onClick={() => handleAction('END_TURN')}
+                                disabled={loading}
+                                sx={{ boxShadow: 'none' }}
+                            >
+                                End Turn
+                            </Button>
+                        </Box>
+                    )}
+                </Box>
+            )}
+
+            {/* Audit Trail / Game Log - Visible to EVERYONE always */}
+            <Box sx={{
+                mt: 2,
+                width: '100%',
+                maxHeight: '150px',
+                overflowY: 'auto',
+                bgcolor: 'rgba(0,0,0,0.2)',
+                borderRadius: 2,
+                p: 1.5,
+                border: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex',
+                flexDirection: 'column-reverse'
+            }}>
+                {(log || []).slice().reverse().map((entry, i) => (
+                    <Typography key={i} variant="caption" display="block" color="text.secondary" sx={{ py: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        {entry}
+                    </Typography>
+                ))}
             </Box>
-        </Paper>
+        </Box>
     );
 }
