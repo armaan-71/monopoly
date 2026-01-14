@@ -5,7 +5,7 @@ import PropertyTile from './PropertyTile';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { useGameStore } from '@/store/gameStore';
 
-export default function Board() {
+export default function Board({ children }: { children?: React.ReactNode }) {
     const { players, properties } = useGameStore();
 
     // Helper to find which players are on a specific tile index
@@ -14,23 +14,6 @@ export default function Board() {
             .filter((p) => p.position === tileIndex)
             .map((p) => p.avatarId || p.name);
     };
-
-    // We need to map the 0-39 index to grid positions.
-    // Standard Monopoly board is 11x11 grid (counting corners).
-    // Bottom row: 10-0 (Right to Left) -> Wait, Standard is usually:
-    // Bottom Right = Go (0) -> Bottom Left = Jail (10)
-    // Left Col = 11-19 (Bottom to Top)
-    // Top Row = 20-30 (Left to Right)
-    // Right Col = 31-39 (Top to Bottom)
-
-    // Actually, let's stick to a simpler visual index mapping if we use CSS Grid loop.
-    // 0  1  2  3  4  5  6  7  8  9  10
-    // 39                            11
-    // 38                            12
-    // ...                           ...
-    // 30 29 28 27 26 25 24 23 22 21 20
-
-    // Let's render them by specific grid areas
 
     // Tiles 0-10 (Bottom Row, Right to Left)
     const bottomRow = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
@@ -59,11 +42,11 @@ export default function Board() {
                 gridTemplateRows: 'repeat(11, 1fr)',
                 gap: 0.5,
                 width: '100%',
-                maxWidth: '800px',
+                maxWidth: '850px',
                 aspectRatio: '1/1',
                 margin: '0 auto',
                 p: 1,
-                bgcolor: '#dbece5', // Center board color
+                bgcolor: 'transparent',
             }}
         >
             {/* Top Row (20-30) */}
@@ -94,25 +77,25 @@ export default function Board() {
                 </Box>
             ))}
 
-            {/* Center Logo Area */}
+            {/* Center Area (Logo + Children) */}
             <Box
                 sx={{
                     gridColumn: '2 / span 9',
                     gridRow: '2 / span 9',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexDirection: 'column',
+                    bgcolor: '#1E1E1E', // Darker Card color for center
+                    borderRadius: 2,
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}
             >
-                <Box sx={{
-                    fontSize: '4rem',
-                    fontWeight: '900',
-                    transform: 'rotate(-45deg)',
-                    color: '#e0e0e0',
-                    userSelect: 'none'
-                }}>
-                    MONOPOLY
+                {/* Active Controls in Center */}
+                <Box sx={{ zIndex: 2, width: '100%', p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {children}
                 </Box>
             </Box>
         </Box>
