@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Box, Container, Typography, Card, CardContent } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 import Board from '@/components/board/Board';
 import GameControls from '@/components/game/GameControls';
+import PropertyDashboard from '@/components/game/PropertyDashboard';
 import { useRealtimeGame } from '@/hooks/useRealtimeGame';
 import { useGameStore } from '@/store/gameStore';
 
@@ -11,7 +12,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
     const { id: roomId } = use(params);
     useRealtimeGame(roomId);
 
-    const { code, players } = useGameStore();
+    const { isGameStarted, players } = useGameStore();
     const [playerId, setPlayerId] = useState<string>('');
 
     useEffect(() => {
@@ -21,64 +22,43 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
     }, [roomId]);
 
     return (
-        <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: 2 }}>
-            <Container maxWidth="xl">
-                {/* Responsive Grid Layout using Box and CSS Grid */}
+        <Box sx={{
+            minHeight: '100vh',
+            bgcolor: 'background.default',
+            color: 'text.primary',
+            p: { xs: 1, md: 3 }
+        }}>
+            <Container maxWidth="xl" disableGutters>
+
+                {/* Main 3-Column Layout */}
                 <Box sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', lg: '300px 1fr 300px' },
-                    gap: 4
+                    gridTemplateColumns: { xs: '1fr', lg: '350px 1fr 350px' },
+                    gap: 4,
+                    alignItems: 'start'
                 }}>
 
-                    {/* Left Panel: Game State / Players */}
-                    <Box>
-                        <Card sx={{ mb: 2 }}>
-                            <CardContent>
-                                <Typography variant="h6">Room Code: {code || 'Loading...'}</Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Share this code with friends
-                                </Typography>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>Players</Typography>
-                                {players.length === 0 ? (
-                                    <Typography variant="body2" color="text.secondary">No players yet</Typography>
-                                ) : (
-                                    players.map(p => (
-                                        <Box key={p.id} sx={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            p: 1,
-                                            bgcolor: p.id === playerId ? 'action.selected' : 'transparent',
-                                            borderRadius: 1
-                                        }}>
-                                            <Typography fontWeight={p.id === playerId ? 'bold' : 'normal'}>
-                                                {p.name} {p.id === playerId && '(You)'}
-                                            </Typography>
-                                            <Typography color="success.main">${p.money}</Typography>
-                                        </Box>
-                                    ))
-                                )}
-                            </CardContent>
-                        </Card>
+                    {/* Left Panel: Personal Dashboard */}
+                    <Box sx={{ order: { xs: 2, lg: 1 } }}>
+                        <PropertyDashboard playerId={playerId} />
                     </Box>
 
                     {/* Center: The Board */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        order: { xs: 1, lg: 2 }
+                    }}>
                         <Board />
                     </Box>
 
-                    {/* Right Panel: Controls */}
-                    <Box>
+                    {/* Right Panel: Game Controls & Global Log */}
+                    <Box sx={{ order: { xs: 3, lg: 3 } }}>
                         <GameControls roomId={roomId} playerId={playerId} />
 
-                        {/* Start Game Button (Only for simple lobby logic, anyone can start for MVP) */}
-                        {/* Ideally we check if players[0].id === playerId but we need to trust local identity */}
-                        {!useGameStore((s) => s.isGameStarted) && players.length > 0 && (
-                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                        {/* Start Game Button (MVP) */}
+                        {!isGameStarted && players.length > 0 && (
+                            <Box sx={{ mt: 2, textAlign: 'center' }}>
                                 <button
                                     onClick={async () => {
                                         await fetch('/api/game/start', {
@@ -87,19 +67,26 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                                         });
                                     }}
                                     style={{
-                                        padding: '10px 20px',
-                                        background: '#4caf50',
+                                        padding: '12px 24px',
+                                        background: '#2e7d32',
                                         color: 'white',
                                         border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer'
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem',
+                                        fontWeight: 'bold',
+                                        letterSpacing: '0.5px'
                                     }}
                                 >
                                     START GAME
                                 </button>
+                                <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
+                                    Waiting for players...
+                                </Typography>
                             </Box>
                         )}
                     </Box>
+
                 </Box>
             </Container>
         </Box>
