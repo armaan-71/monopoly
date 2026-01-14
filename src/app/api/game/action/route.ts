@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GameState } from '@/types/game';
-import { rollDice, getNextPosition, canBuyProperty, didPassGo } from '@/utils/gameLogic';
+import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
 type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN';
@@ -43,19 +43,82 @@ export async function POST(request: Request) {
                 const diceTotal = dice[0] + dice[1];
                 const player = newState.players[playerIndex];
 
-                const oldPosition = player.position;
-                const newPosition = getNextPosition(oldPosition, diceTotal);
+                // Check Jail
+                if (player.isInJail) {
+                    player.jailTurns += 1;
+                    if (dice[0] === dice[1]) {
+                        player.isInJail = false;
+                        player.jailTurns = 0;
+                        message = `${player.name} rolled doubles and got out of Jail!`;
+                    } else if (player.jailTurns >= 3) {
+                        // Force pay $50 or bail logic here. For MVP, we'll just let them out next turn or similar.
+                        // Let's simplified: If 3rd turn failed, stay in jail one more wait?
+                        // Official rules: pay $50. Let's force pay $50 if have money.
+                        if (player.money >= 50) {
+                            player.money -= 50;
+                            player.isInJail = false;
+                            message = `${player.name} paid $50 bail after 3 fails.`;
+                        } else {
+                            // Bankruptcy in jail edge case... 
+                            message = `${player.name} is stuck in Jail.`;
+                            // Don't move
+                        }
+                    } else {
+                        message = `${player.name} is in Jail. Rolled ${diceTotal}.`;
+                        // End here, cannot move
+                        newState.lastAction = message;
+                        newState.dice = dice; // Show dice
+                        // Auto end turn? Usually player has to click End Turn.
+                        break;
+                    }
+                }
 
-                // Update player position
-                player.position = newPosition;
-                newState.dice = dice;
+                if (!player.isInJail) {
+                    const oldPosition = player.position;
+                    const newPosition = getNextPosition(oldPosition, diceTotal);
 
-                // Handle Pass Go
-                if (didPassGo(oldPosition, newPosition)) {
-                    player.money += 200;
-                    message = `${player.name} rolled ${diceTotal} and passed GO!`;
-                } else {
-                    message = `${player.name} rolled ${diceTotal}`;
+                    // Update player position
+                    player.position = newPosition;
+                    newState.dice = dice;
+
+                    // Handle Pass Go
+                    if (didPassGo(oldPosition, newPosition)) {
+                        player.money += 200;
+                        message = `${player.name} rolled ${diceTotal} and passed GO!`;
+                    } else {
+                        message = `${player.name} rolled ${diceTotal}`;
+                    }
+
+                    // LANDING LOGIC
+
+                    // 1. Check Owner / Rent
+                    const propertyState = newState.properties[newPosition];
+                    if (propertyState && propertyState.owner && propertyState.owner !== player.id) {
+                        const rent = calculateRent(newPosition, newState, diceTotal);
+                        if (rent > 0) {
+                            player.money -= rent;
+                            // Add to owner
+                            const ownerIndex = newState.players.findIndex(p => p.id === propertyState.owner);
+                            if (ownerIndex !== -1) {
+                                newState.players[ownerIndex].money += rent;
+                            }
+                            message += `. Paid $${rent} rent to ${newState.players[ownerIndex].name}.`;
+                        }
+                    }
+
+                    // 2. Check Special Tiles (Tax, Jail)
+                    const { moneyChange, sendToJail, message: tileMsg } = handleSpecialTile(player, newPosition);
+                    if (tileMsg) {
+                        message += ` ${tileMsg}`;
+                    }
+                    if (moneyChange !== 0) {
+                        player.money += moneyChange;
+                    }
+                    if (sendToJail) {
+                        player.isInJail = true;
+                        player.position = 10; // Jail location
+                        player.jailTurns = 0;
+                    }
                 }
 
                 newState.lastAction = message;
