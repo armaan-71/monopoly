@@ -10,8 +10,11 @@ import {
     TableRow,
     TableCell,
     IconButton,
+    Chip,
+    Button,
     useTheme
 } from '@mui/material';
+import { useGameStore } from '@/store/gameStore';
 import CloseIcon from '@mui/icons-material/Close';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { PropertyGroup } from '@/types/game';
@@ -20,15 +23,31 @@ interface PropertyDetailsDialogProps {
     open: boolean;
     onClose: () => void;
     propertyId: number | null;
+    playerId: string | null;
+    roomId: string;
 }
 
-export default function PropertyDetailsDialog({ open, onClose, propertyId }: PropertyDetailsDialogProps) {
+export default function PropertyDetailsDialog({ open, onClose, propertyId, playerId, roomId }: PropertyDetailsDialogProps) {
     const theme = useTheme();
+    const { properties, players } = useGameStore();
 
-    if (propertyId === null) return null;
+    // Calculate mortgage value if property accessible
+    const propertyDef = propertyId !== null ? BOARD_CONFIG.find(p => p.id === propertyId) : null;
+    const mortgageValue = propertyDef?.price ? Math.floor(propertyDef.price / 2) : 0;
 
-    const property = BOARD_CONFIG.find(p => p.id === propertyId);
-    if (!property) return null;
+
+    if (propertyId === null || !propertyDef) return null;
+
+    const propertyState = properties[propertyId];
+    const isOwner = propertyState?.owner === playerId;
+    const isMortgaged = propertyState?.isMortgaged;
+
+    // Check mortgage eligibility locally for UI feedback (API validates too)
+    const canMortgage = isOwner && !isMortgaged && (propertyState?.houses === 0);
+    const canUnmortgage = isOwner && isMortgaged;
+
+    // Calculate unmortgage cost (Value + 10%)
+    const unmortgageCost = Math.floor(mortgageValue * 1.1);
 
     const getGroupColor = (group: PropertyGroup) => {
         switch (group) {
@@ -44,12 +63,35 @@ export default function PropertyDetailsDialog({ open, onClose, propertyId }: Pro
         }
     };
 
-    const headerColor = property.group !== 'none' ? getGroupColor(property.group) : theme.palette.grey[800];
-    const isSpecial = property.group === 'special'; // Railroads / Utilities
-    const isColorSet = property.group !== 'none' && property.group !== 'special';
+    const headerColor = propertyDef.group !== 'none' ? getGroupColor(propertyDef.group) : theme.palette.grey[800];
+    const isSpecial = propertyDef.group === 'special'; // Railroads / Utilities
+    const isColorSet = propertyDef.group !== 'none' && propertyDef.group !== 'special';
 
-    // Mortgage Value is typically half of the price
-    const mortgageValue = property.price ? property.price / 2 : 0;
+    const handleAction = async (action: 'MORTGAGE' | 'UNMORTGAGE') => {
+        if (!roomId || !playerId || propertyId === null) return;
+
+        try {
+            const res = await fetch('/api/game/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    roomId,
+                    playerId,
+                    action,
+                    propertyId
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Action failed');
+            } else {
+                // Success - close dialog or keep open? 
+                // Keep open to see status change is better UX.
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     return (
         <Dialog
@@ -94,49 +136,70 @@ export default function PropertyDetailsDialog({ open, onClose, propertyId }: Pro
                     TITLE DEED
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', lineHeight: 1.2 }}>
-                    {property.name.toUpperCase()}
+                    {propertyDef.name.toUpperCase()}
                 </Typography>
+                {isMortgaged && (
+                    <Chip
+                        label="MORTGAGED"
+                        color="error"
+                        sx={{
+                            mt: 1,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            border: '2px solid white'
+                        }}
+                    />
+                )}
             </Box>
 
             <DialogContent sx={{ p: 0 }}>
-                {property.price ? (
+                {propertyDef.price ? (
                     <Box sx={{ p: 2 }}>
                         {/* Rent Table for Color Properties */}
-                        {isColorSet && property.rent && (
+                        {!isMortgaged && isColorSet && propertyDef.rent && (
                             <Table size="small" sx={{ '& td': { borderBottom: 'none', py: 0.5 } }}>
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>Rent</TableCell>
-                                        <TableCell align="right">${property.rent[0]}</TableCell>
+                                        <TableCell align="right">${propertyDef.rent[0]}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell>With 1 House</TableCell>
-                                        <TableCell align="right">${property.rent[1]}</TableCell>
+                                        <TableCell align="right">${propertyDef.rent[1]}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell>With 2 Houses</TableCell>
-                                        <TableCell align="right">${property.rent[2]}</TableCell>
+                                        <TableCell align="right">${propertyDef.rent[2]}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell>With 3 Houses</TableCell>
-                                        <TableCell align="right">${property.rent[3]}</TableCell>
+                                        <TableCell align="right">${propertyDef.rent[3]}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell>With 4 Houses</TableCell>
-                                        <TableCell align="right">${property.rent[4]}</TableCell>
+                                        <TableCell align="right">${propertyDef.rent[4]}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 'bold' }}>With HOTEL</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>${property.rent[5]}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>${propertyDef.rent[5]}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
                         )}
 
+                        {/* Mortgaged State Message */}
+                        {isMortgaged && (
+                            <Box sx={{ py: 4, textAlign: 'center', color: 'error.main' }}>
+                                <Typography variant="h6" fontWeight="bold">THIS PROPERTY IS MORTGAGED</Typography>
+                                <Typography variant="body2">No rent can be collected.</Typography>
+                            </Box>
+                        )}
+
                         {/* Special Properties (Railroads / Utilities) */}
-                        {isSpecial && property.group === 'special' && (
+                        {!isMortgaged && isSpecial && propertyDef.group === 'special' && (
                             <Box sx={{ py: 2, textAlign: 'center' }}>
-                                {property.name.includes('Railroad') ? (
+                                {propertyDef.name.includes('Railroad') ? (
                                     <>
                                         <Typography variant="body2" sx={{ mb: 1 }}>Rent: $25</Typography>
                                         <Typography variant="body2" sx={{ mb: 1 }}>If 2 Railroads are owned: $50</Typography>
@@ -163,21 +226,47 @@ export default function PropertyDetailsDialog({ open, onClose, propertyId }: Pro
                             <Typography variant="body2">
                                 Mortgage Value: <strong>${mortgageValue}</strong>
                             </Typography>
-                            {property.houseCost && (
+                            {propertyDef.houseCost && (
                                 <Typography variant="body2">
-                                    Houses cost <strong>${property.houseCost}</strong> each
+                                    Houses cost <strong>${propertyDef.houseCost}</strong> each
                                 </Typography>
                             )}
-                            {property.houseCost && (
+                            {propertyDef.houseCost && (
                                 <Typography variant="body2">
-                                    Hotels cost <strong>${property.houseCost}</strong> plus 4 houses
+                                    Hotels cost <strong>${propertyDef.houseCost}</strong> plus 4 houses
                                 </Typography>
                             )}
                         </Box>
+
+                        {/* Actions */}
+                        {isOwner && (
+                            <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
+                                {canMortgage && (
+                                    <Button
+                                        fullWidth
+                                        variant="outlined"
+                                        color="warning"
+                                        onClick={() => handleAction('MORTGAGE')}
+                                    >
+                                        Mortgage (+${mortgageValue})
+                                    </Button>
+                                )}
+                                {canUnmortgage && (
+                                    <Button
+                                        fullWidth
+                                        variant="contained"
+                                        color="success"
+                                        onClick={() => handleAction('UNMORTGAGE')}
+                                    >
+                                        Unmortgage (-${unmortgageCost})
+                                    </Button>
+                                )}
+                            </Box>
+                        )}
                     </Box>
                 ) : (
                     <Box sx={{ p: 4, textAlign: 'center' }}>
-                        <Typography variant="body1">{property.description || 'No details available.'}</Typography>
+                        <Typography variant="body1">{propertyDef.description || 'No details available.'}</Typography>
                     </Box>
                 )}
             </DialogContent>

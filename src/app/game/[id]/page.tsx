@@ -40,6 +40,8 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                 open={selectedPropertyId !== null}
                 onClose={() => setSelectedPropertyId(null)}
                 propertyId={selectedPropertyId}
+                playerId={playerId}
+                roomId={roomId}
             />
 
             <Container maxWidth="xl" disableGutters sx={{ height: '100%' }}>

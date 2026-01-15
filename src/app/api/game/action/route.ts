@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GameState } from '@/types/game';
-import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile } from '@/utils/gameLogic';
+import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE';
 
 export async function POST(request: Request) {
     try {
-        const { roomId, playerId, action } = await request.json();
+        const { roomId, playerId, action, propertyId } = await request.json();
 
         // 1. Fetch current game state
         const { data: room, error: roomError } = await supabase
@@ -158,6 +158,52 @@ export async function POST(request: Request) {
                     newState.log.push(msg);
                 } else {
                     return NextResponse.json({ error: 'Cannot buy this property' }, { status: 400 });
+                }
+                break;
+            }
+
+
+            case 'MORTGAGE': {
+                if (typeof propertyId !== 'number') return NextResponse.json({ error: 'Missing propertyId' }, { status: 400 });
+
+                if (canMortgage(propertyId, playerId, gameState)) {
+                    const value = getMortgageValue(propertyId);
+                    const player = newState.players[playerIndex];
+                    const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+
+                    // Execute Mortgage
+                    player.money += value;
+                    newState.properties[propertyId].isMortgaged = true;
+
+                    const msg = `${player.name} mortgaged ${propertyDef?.name} for $${value}`;
+                    newState.lastAction = msg;
+                    if (!newState.log) newState.log = [];
+                    newState.log.push(msg);
+                } else {
+                    return NextResponse.json({ error: 'Cannot mortgage this property' }, { status: 400 });
+                }
+                break;
+            }
+
+            case 'UNMORTGAGE': {
+                if (typeof propertyId !== 'number') return NextResponse.json({ error: 'Missing propertyId' }, { status: 400 });
+
+                const player = newState.players[playerIndex];
+
+                if (canUnmortgage(propertyId, playerId, player.money, gameState)) {
+                    const cost = getUnmortgageCost(propertyId);
+                    const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+
+                    // Execute Unmortgage
+                    player.money -= cost;
+                    newState.properties[propertyId].isMortgaged = false;
+
+                    const msg = `${player.name} unmortgaged ${propertyDef?.name} for $${cost}`;
+                    newState.lastAction = msg;
+                    if (!newState.log) newState.log = [];
+                    newState.log.push(msg);
+                } else {
+                    return NextResponse.json({ error: 'Cannot unmortgage this property' }, { status: 400 });
                 }
                 break;
             }

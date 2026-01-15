@@ -95,3 +95,39 @@ export const handleSpecialTile = (
 
     return { moneyChange: 0, sendToJail: false };
 };
+
+export const getMortgageValue = (propertyId: number): number => {
+    const property = BOARD_CONFIG.find(p => p.id === propertyId);
+    return property && property.price ? Math.floor(property.price / 2) : 0;
+};
+
+export const getUnmortgageCost = (propertyId: number): number => {
+    const mortgageValue = getMortgageValue(propertyId);
+    return Math.floor(mortgageValue * 1.1);
+};
+
+export const canMortgage = (
+    propertyId: number,
+    playerId: string,
+    gameState: GameState
+): boolean => {
+    const property = gameState.properties[propertyId];
+    if (!property || property.owner !== playerId || property.isMortgaged) return false;
+    
+    // For MVP, we are not checking if other properties in the group have houses yet.
+    // Ideally: check all properties of same color group for houses > 0.
+    return property.houses === 0;
+};
+
+export const canUnmortgage = (
+    propertyId: number,
+    playerId: string,
+    playerMoney: number,
+    gameState: GameState
+): boolean => {
+    const property = gameState.properties[propertyId];
+    if (!property || property.owner !== playerId || !property.isMortgaged) return false;
+    
+    const cost = getUnmortgageCost(propertyId);
+    return playerMoney >= cost;
+};
