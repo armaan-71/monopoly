@@ -22,6 +22,7 @@ const INITIAL_STATE: Omit<GameStore, 'setGameState' | 'setRoomCode' | 'updatePla
     dice: [1, 1],
     isGameStarted: false,
     winner: null,
+    currentCard: null,
 };
 
 export const useGameStore = create<GameStore>()(

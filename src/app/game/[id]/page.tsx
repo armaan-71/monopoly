@@ -7,6 +7,7 @@ import GameControls from '@/components/game/GameControls';
 import PropertyDashboard from '@/components/game/PropertyDashboard';
 import GameInfoPanel from '@/components/game/GameInfoPanel';
 import PropertyDetailsDialog from '@/components/game/PropertyDetailsDialog';
+import CardDialog from '@/components/game/CardDialog';
 import { useRealtimeGame } from '@/hooks/useRealtimeGame';
 import { useGameStore } from '@/store/gameStore';
 
@@ -43,6 +44,8 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                 playerId={playerId}
                 roomId={roomId}
             />
+
+            <CardDialog roomId={roomId} playerId={playerId} />
 
             <Container maxWidth="xl" disableGutters sx={{ height: '100%' }}>
 

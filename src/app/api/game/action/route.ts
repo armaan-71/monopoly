@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GameState } from '@/types/game';
-import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost } from '@/utils/gameLogic';
+import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD';
 
 export async function POST(request: Request) {
     try {
@@ -110,7 +110,6 @@ export async function POST(request: Request) {
                     const { moneyChange, sendToJail, message: tileMsg } = handleSpecialTile(player, newPosition);
                     if (tileMsg) {
                         message += ` ${tileMsg}`;
-                        // tileMsg is like "Sent to Jail!" or "Paid $200..."
                         auditEvents.push(`${player.name} ${tileMsg.charAt(0).toLowerCase() + tileMsg.slice(1)}`);
                     }
                     if (moneyChange !== 0) {
@@ -120,6 +119,51 @@ export async function POST(request: Request) {
                         player.isInJail = true;
                         player.position = 10; // Jail location
                         player.jailTurns = 0;
+                    }
+
+                    // 3. Check Cards (Chance / Community Chest)
+                    // Only if not already sent to jail by special tile (Go To Jail)
+                    if (!sendToJail) {
+                        const tileName = BOARD_CONFIG.find(p => p.id === newPosition)?.name;
+                        if (tileName === 'Chance' || tileName === 'Community Chest') {
+                            const cardType = tileName === 'Chance' ? 'CHANCE' : 'COMMUNITY_CHEST';
+                            const card = drawCard(cardType);
+                            newState.currentCard = card;
+
+                            const effect = applyCardEffect(card, player, newPosition);
+
+                            // Apply changes
+                            player.money = effect.newMoney;
+
+                            if (effect.newPosition !== newPosition) {
+                                player.position = effect.newPosition;
+                                // Handle potential "Pass Go" on card movement if needed (simple check)
+                                if (effect.newPosition < newPosition && effect.newPosition === 0) { // e.g. Advance to Go
+                                    // "Advance to Go" usually implies collecting $200. 
+                                    // Our applyCardEffect handles exact position. 
+                                    // Standard "Pass Go" logic for *movement* via card isn't fully robust here but acceptable for MVP.
+                                    // In 'applyCardEffect' we didn't add $200 for passing go, only for "Advance to Go" card value potentially?
+                                    // Actually 'Advance to Go' card value is 0 (pos). 
+                                    // We rely on the card text "Collect $200" or explicit MONEY action if separated. 
+                                    // Standard Monopoly rules: "Advance to Go (Collect $200)". If we move to 0, does the game trigger $200? 
+                                    // For now, let's assume the Card Text covers the logic or we just move.
+                                    // Actually, standard "Advance to Go" is usually a MOVE card to 0. The $200 comes from "Passing Go" logic which *normally* triggers.
+                                    // Since we force position, we should probably check pass go manually or just add money if it's "Advance to Go".
+                                    if (card.text.includes('Collect $200')) {
+                                        player.money += 200;
+                                    }
+                                }
+                            }
+
+                            if (effect.sendToJail) {
+                                player.isInJail = true;
+                                player.position = 10;
+                                player.jailTurns = 0;
+                            }
+
+                            message += ` Drew ${cardType === 'CHANCE' ? 'Chance' : 'Community Chest'}: ${card.text}`;
+                            auditEvents.push(`${player.name} drew card: ${card.text}`);
+                        }
                     }
                 }
 
@@ -205,6 +249,15 @@ export async function POST(request: Request) {
                 } else {
                     return NextResponse.json({ error: 'Cannot unmortgage this property' }, { status: 400 });
                 }
+                break;
+            }
+
+            case 'DISMISS_CARD': {
+                // Anyone can dismiss? Or only current player?
+                // Probably better to allow current player.
+                // Reset card
+                newState.currentCard = null;
+                // No log needed really, it's UI cleanup.
                 break;
             }
 

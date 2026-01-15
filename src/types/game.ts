@@ -1,3 +1,5 @@
+import { Card } from '@/constants/cards';
+
 export type PlayerId = string;
 
 export interface PlayerState {
@@ -47,4 +49,5 @@ export interface GameState {
     dice: [number, number];
     isGameStarted: boolean; // Lobby vs Playing
     winner: PlayerId | null;
+    currentCard: Card | null;
 }

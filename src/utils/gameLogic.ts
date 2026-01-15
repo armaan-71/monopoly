@@ -1,5 +1,6 @@
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { PropertyState, GameState, PlayerState } from '@/types/game';
+import { Card, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '@/constants/cards';
 
 export const rollDice = (): [number, number] => {
     return [
@@ -113,7 +114,7 @@ export const canMortgage = (
 ): boolean => {
     const property = gameState.properties[propertyId];
     if (!property || property.owner !== playerId || property.isMortgaged) return false;
-    
+
     // For MVP, we are not checking if other properties in the group have houses yet.
     // Ideally: check all properties of same color group for houses > 0.
     return property.houses === 0;
@@ -127,7 +128,63 @@ export const canUnmortgage = (
 ): boolean => {
     const property = gameState.properties[propertyId];
     if (!property || property.owner !== playerId || !property.isMortgaged) return false;
-    
+
     const cost = getUnmortgageCost(propertyId);
     return playerMoney >= cost;
+};
+
+export const drawCard = (type: 'CHANCE' | 'COMMUNITY_CHEST'): Card => {
+    const deck = type === 'CHANCE' ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS;
+    // Simple random draw for now (stateless deck)
+    const randomIndex = Math.floor(Math.random() * deck.length);
+    return deck[randomIndex];
+};
+
+export const applyCardEffect = (
+    card: Card,
+    player: PlayerState,
+    currentPosition: number
+): {
+    newMoney: number,
+    newPosition: number,
+    sendToJail: boolean,
+    log: string
+} => {
+    let newMoney = player.money;
+    let newPosition = currentPosition;
+    let sendToJail = false;
+    let log = '';
+
+    switch (card.action) {
+        case 'MONEY':
+            if (card.value) {
+                newMoney += card.value;
+                log = card.value > 0
+                    ? `${player.name} received $${card.value}`
+                    : `${player.name} paid $${Math.abs(card.value)}`;
+            }
+            break;
+        case 'MOVE':
+            if (card.value !== undefined) {
+                // Relative Move (negative value) or Absolute Move
+                if (card.value < 0) {
+                    // Go Back X spaces
+                    newPosition = (currentPosition + card.value + 40) % 40;
+                } else {
+                    newPosition = card.value;
+                }
+                log = `${player.name} moved to ${BOARD_CONFIG[newPosition].name}`;
+            }
+            break;
+        case 'JAIL':
+            sendToJail = true;
+            log = `${player.name} went to Jail!`;
+            break;
+        case 'JAIL_FREE':
+            // TODO: Implement holding card
+            log = `${player.name} drew Get Out of Jail Free`;
+            break;
+    }
+
+    return { newMoney, newPosition, sendToJail, log };
 };
