@@ -1,3 +1,4 @@
+import komOnlineLogo from "@/assets/images/kom-online.png";
 import { BOARD_CONFIG } from "@/constants/boardConfig";
 import { useGameStore } from "@/store/gameStore";
 import { Box } from "@mui/material";
@@ -159,7 +160,7 @@ export default function Board() {
       >
         <Box
           component="img"
-          src="/monopoly-logo.png" // Placeholder or text
+          src={komOnlineLogo.src}
           alt="Monopoly"
           sx={{ maxWidth: "80%", opacity: 0.2, display: "none" }} // Hide if no image
         />

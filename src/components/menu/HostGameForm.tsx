@@ -37,7 +37,7 @@ export default function HostGameForm({
       <Box>
         <Typography
           variant="caption"
-          sx={{ color: "grey.500", mb: 1, display: "block" }}
+          sx={{ color: "text.secondary", mb: 1, display: "block" }}
         >
           Your Name
         </Typography>
@@ -49,10 +49,11 @@ export default function HostGameForm({
           placeholder="Enter name"
           sx={{
             "& .MuiOutlinedInput-root": {
-              color: "white",
-              "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
-              "&:hover fieldset": { borderColor: "white" },
-              "&.Mui-focused fieldset": { borderColor: "white" },
+              color: "text.primary",
+              bgcolor: "rgba(255,255,255,0.05)",
+              "& fieldset": { borderColor: "rgba(255,255,255,0.2)" },
+              "&:hover fieldset": { borderColor: "primary.main" },
+              "&.Mui-focused fieldset": { borderColor: "primary.main" },
             },
           }}
         />
@@ -61,7 +62,7 @@ export default function HostGameForm({
       <Box>
         <Typography
           variant="caption"
-          sx={{ color: "grey.500", mb: 1, display: "block" }}
+          sx={{ color: "text.secondary", mb: 1, display: "block" }}
         >
           Select Avatar
         </Typography>
@@ -79,16 +80,20 @@ export default function HostGameForm({
 
       <Button
         type="submit"
-        variant="outlined"
+        variant="contained"
         size="large"
         disabled={loading || !name}
         sx={{
-          color: "white",
-          borderColor: "rgba(255,255,255,0.3)",
           py: 1.5,
+          fontWeight: 600,
+          bgcolor: "primary.main",
+          color: "black", // Contrast text since primary is light blue
           "&:hover": {
-            borderColor: "white",
-            bgcolor: "rgba(255,255,255,0.05)",
+            bgcolor: "primary.dark",
+          },
+          "&.Mui-disabled": {
+            bgcolor: "rgba(255,255,255,0.12)",
+            color: "rgba(255,255,255,0.3)",
           },
         }}
       >

@@ -22,12 +22,13 @@ export default function MainMenu({
     <Box
       sx={{
         minHeight: "100vh",
-        bgcolor: "#121212",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        color: "white",
+        justifyContent: "flex-start", // Start from top
+        padding: 4,
+        color: "text.primary",
+        bgcolor: "background.default",
       }}
     >
       <Container maxWidth="xs">
@@ -35,7 +36,12 @@ export default function MainMenu({
           variant="h3"
           align="center"
           gutterBottom
-          sx={{ fontWeight: 300, mb: 4, letterSpacing: 2 }}
+          sx={{
+            fontWeight: 300,
+            mb: 4,
+            letterSpacing: 2,
+            color: "text.primary",
+          }}
         >
           Monopoly
         </Typography>
@@ -54,14 +60,17 @@ export default function MainMenu({
               onClick={() => setMode("join")}
               sx={{
                 px: 4,
-                color: mode === "join" ? "white !important" : "inherit",
+                color:
+                  mode === "join"
+                    ? "text.primary !important"
+                    : "text.secondary",
                 bgcolor:
                   mode === "join"
                     ? "rgba(255,255,255,0.1) !important"
                     : "transparent",
                 borderColor:
                   mode === "join"
-                    ? "white !important"
+                    ? "text.primary !important"
                     : "rgba(255,255,255,0.3)",
               }}
             >
@@ -71,14 +80,17 @@ export default function MainMenu({
               onClick={() => setMode("host")}
               sx={{
                 px: 4,
-                color: mode === "host" ? "white !important" : "inherit",
+                color:
+                  mode === "host"
+                    ? "text.primary !important"
+                    : "text.secondary",
                 bgcolor:
                   mode === "host"
                     ? "rgba(255,255,255,0.1) !important"
                     : "transparent",
                 borderColor:
                   mode === "host"
-                    ? "white !important"
+                    ? "text.primary !important"
                     : "rgba(255,255,255,0.3)",
               }}
             >
@@ -87,11 +99,15 @@ export default function MainMenu({
           </ButtonGroup>
         </Box>
 
-        {mode === "join" ? (
-          <JoinGameForm onJoin={onJoin} loading={loading} error={error} />
-        ) : (
-          <HostGameForm onHost={onHost} loading={loading} error={error} />
-        )}
+        <Box sx={{ minHeight: 400 }}>
+          {" "}
+          {/* Fixed container height to prevent shift */}
+          {mode === "join" ? (
+            <JoinGameForm onJoin={onJoin} loading={loading} error={error} />
+          ) : (
+            <HostGameForm onHost={onHost} loading={loading} error={error} />
+          )}
+        </Box>
       </Container>
     </Box>
   );
