@@ -62,7 +62,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                         height: { lg: 'calc(100vh - 48px)' },
                         overflowY: 'auto' // Internal scroll if needed
                     }}>
-                        <GameInfoPanel />
+                        <GameInfoPanel playerId={playerId} />
                     </Box>
 
                     {/* Center: The Board with Controls */}

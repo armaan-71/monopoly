@@ -11,8 +11,26 @@ export default function Board({ children, onPropertyClick }: { children?: React.
     // Helper to find which players are on a specific tile index
     const getPlayersOnTile = (tileIndex: number) => {
         return players
+            .map((p, index) => ({ ...p, originalIndex: index })) // Track original index for color assignment
             .filter((p) => p.position === tileIndex)
-            .map((p) => p.avatarId || p.name);
+            .map((p) => ({
+                name: p.name,
+                index: p.originalIndex // Use index for consistent coloring
+            }));
+    };
+
+    // Helper to find owner index
+    const getOwnerIndex = (propertyId: number) => {
+        const ownerId = properties[propertyId]?.owner;
+        if (!ownerId) return -1;
+        return players.findIndex(p => p.id === ownerId);
+    };
+
+    // Helper to get owner name
+    const getOwnerName = (propertyId: number) => {
+        const index = getOwnerIndex(propertyId);
+        if (index === -1) return undefined;
+        return players[index]?.name;
     };
 
     // Tiles 0-10 (Bottom Row, Right to Left)
@@ -44,6 +62,8 @@ export default function Board({ children, onPropertyClick }: { children?: React.
                 config={BOARD_CONFIG[index]}
                 state={properties[index]}
                 playersOnTile={getPlayersOnTile(index)}
+                ownerIndex={getOwnerIndex(index)}
+                ownerName={getOwnerName(index)}
             />
         </Box>
     );

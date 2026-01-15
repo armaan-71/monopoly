@@ -2,12 +2,11 @@
 
 import { Box, Paper, Typography, Divider, Avatar, useTheme } from '@mui/material';
 import { useGameStore } from '@/store/gameStore';
+import { getPlayerColor } from '@/constants/visuals';
 
-export default function GameInfoPanel() {
+export default function GameInfoPanel({ playerId }: { playerId: string | null }) {
     const { code, players, turnIndex } = useGameStore();
     const theme = useTheme();
-
-    const currentPlayerId = players[turnIndex]?.id;
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
@@ -32,6 +31,10 @@ export default function GameInfoPanel() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
                     {players.map((p, index) => {
                         const isTurn = index === turnIndex;
+                        const isMe = p.id === playerId;
+                        const pColor = getPlayerColor(index);
+                        const initials = p.name.substring(0, 2).toUpperCase();
+
                         return (
                             <Box
                                 key={p.id}
@@ -41,40 +44,44 @@ export default function GameInfoPanel() {
                                     gap: 2,
                                     p: 1.5,
                                     borderRadius: 2,
-                                    bgcolor: isTurn ? 'rgba(144, 202, 249, 0.08)' : 'transparent',
-                                    border: isTurn ? `1px solid ${theme.palette.primary.main}` : '1px solid transparent',
-                                    transition: 'all 0.2s ease'
+                                    bgcolor: isTurn ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                                    border: isTurn ? `1px solid ${pColor}` : '1px solid transparent', // Border matches player color on turn
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isTurn ? `inset 0 0 10px ${pColor}20` : 'none'
                                 }}
                             >
-                                {/* Avatar / Token Placeholder */}
+                                {/* Avatar / Token */}
                                 <Avatar
                                     sx={{
-                                        width: 32,
-                                        height: 32,
-                                        bgcolor: isTurn ? 'primary.main' : 'grey.800',
-                                        fontSize: '0.9rem'
+                                        width: 36,
+                                        height: 36,
+                                        bgcolor: pColor,
+                                        fontSize: '0.85rem',
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        border: '2px solid rgba(255,255,255,0.2)'
                                     }}
                                 >
-                                    {p.name.charAt(0).toUpperCase()}
+                                    {initials}
                                 </Avatar>
 
                                 <Box sx={{ flex: 1 }}>
                                     <Typography variant="body2" fontWeight={isTurn ? 700 : 400}>
-                                        {p.name}
+                                        {p.name} {isMe && '(You)'}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         ${p.money}
                                     </Typography>
                                 </Box>
 
-                                {isTurn && (
+                                {isMe && (
                                     <Box sx={{
                                         width: 8,
                                         height: 8,
                                         borderRadius: '50%',
                                         bgcolor: 'success.main',
                                         boxShadow: '0 0 8px #66bb6a'
-                                    }} />
+                                    }} title="This is you" />
                                 )}
                             </Box>
                         );
