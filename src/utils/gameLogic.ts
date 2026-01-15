@@ -188,3 +188,108 @@ export const applyCardEffect = (
 
     return { newMoney, newPosition, sendToJail, log };
 };
+
+
+// --- Housing Logic ---
+
+export const getPropertyGroup = (group: string): number[] => {
+    return BOARD_CONFIG
+        .filter(p => p.group === group)
+        .map(p => p.id);
+};
+
+export const hasMonopoly = (
+    playerId: string,
+    group: string,
+    gameState: GameState
+): boolean => {
+    if (group === 'none' || group === 'special') return false;
+
+    const propertyIds = getPropertyGroup(group);
+    // Check if player owns ALL properties in this group
+    return propertyIds.every(id => gameState.properties[id]?.owner === playerId);
+};
+
+export const canBuildHouse = (
+    propertyId: number,
+    playerId: string,
+    gameState: GameState
+): { allowed: boolean, reason?: string } => {
+    const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+    const propertyState = gameState.properties[propertyId];
+
+    if (!propertyDef || !propertyState) return { allowed: false, reason: 'Invalid property' };
+    if (propertyState.owner !== playerId) return { allowed: false, reason: 'Not your property' };
+
+    // Check Group
+    if (!propertyDef.houseCost || propertyDef.group === 'none' || propertyDef.group === 'special') {
+        return { allowed: false, reason: 'Cannot build here' };
+    }
+
+    // Check Monopoly
+    if (!hasMonopoly(playerId, propertyDef.group, gameState)) {
+        return { allowed: false, reason: 'Need Monopoly to build' };
+    }
+
+    // Check Max Houses
+    if (propertyState.houses >= 5) {
+        return { allowed: false, reason: 'Max houses reached (Hotel)' };
+    }
+
+    // Check Mortgaged Assets in Group
+    const groupIds = getPropertyGroup(propertyDef.group);
+    const anyMortgaged = groupIds.some(id => gameState.properties[id]?.isMortgaged);
+    if (anyMortgaged) {
+        return { allowed: false, reason: 'Cannot build if any property in group is mortgaged' };
+    }
+
+    // Check "Even Build" Rule
+    // You cannot build on this property if it has MORE houses than any other property in the group.
+    // Difference max 1.
+    // So current houses must be <= min houses in group.
+    // Note: If I have [1, 0], min is 0. I cannot build on 1 (result 2) -> diff 2. Correct.
+    // So current houses must be <= any other property's house count.
+
+    const groupHouses = groupIds.map(id => gameState.properties[id]?.houses || 0);
+    const minHouses = Math.min(...groupHouses);
+
+    if (propertyState.houses > minHouses) {
+        return { allowed: false, reason: 'Must build evenly' };
+    }
+
+    // Check Funds
+    const player = gameState.players.find(p => p.id === playerId);
+    if (!player || player.money < propertyDef.houseCost) {
+        return { allowed: false, reason: 'Insufficient funds' };
+    }
+
+    return { allowed: true };
+};
+
+export const canSellHouse = (
+    propertyId: number,
+    playerId: string,
+    gameState: GameState
+): { allowed: boolean, reason?: string } => {
+    const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+    const propertyState = gameState.properties[propertyId];
+
+    if (!propertyDef || !propertyState) return { allowed: false, reason: 'Invalid property' };
+    if (propertyState.owner !== playerId) return { allowed: false, reason: 'Not your property' };
+    if (propertyState.houses <= 0) return { allowed: false, reason: 'No houses to sell' };
+
+    // Check "Even Sell" Rule
+    // You cannot sell if this property has FEWER houses than any other property in group.
+    // It must be at least as developed as the MAX in the group to peel off the top layer.
+    // [4, 5] -> can sell 5 (result 4). Can sell 4? (result 3). Diff 2. No.
+    // So housing count must be == max houses in group.
+    const groupIds = getPropertyGroup(propertyDef.group);
+    const groupHouses = groupIds.map(id => gameState.properties[id]?.houses || 0);
+    const maxHouses = Math.max(...groupHouses);
+
+    if (propertyState.houses < maxHouses) {
+        return { allowed: false, reason: 'Must sell evenly (sell from most developed first)' };
+    }
+
+    return { allowed: true };
+};

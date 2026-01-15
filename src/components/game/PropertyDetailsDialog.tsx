@@ -18,6 +18,7 @@ import { useGameStore } from '@/store/gameStore';
 import CloseIcon from '@mui/icons-material/Close';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { PropertyGroup } from '@/types/game';
+import { canMortgage, canUnmortgage as canUnmortgageCheck, getMortgageValue, getUnmortgageCost, canBuildHouse, canSellHouse } from '@/utils/gameLogic';
 
 interface PropertyDetailsDialogProps {
     open: boolean;
@@ -67,7 +68,17 @@ export default function PropertyDetailsDialog({ open, onClose, propertyId, playe
     const isSpecial = propertyDef.group === 'special'; // Railroads / Utilities
     const isColorSet = propertyDef.group !== 'none' && propertyDef.group !== 'special';
 
-    const handleAction = async (action: 'MORTGAGE' | 'UNMORTGAGE') => {
+    // Derived state for the dialog
+    const gameState = { properties, players } as any; // Quick cast or use proper state construction if needed for helpers. 
+    // Actually the helpers expect full GameState. We only have pieces from store.
+    // The helpers `canBuildHouse` require `gameState.properties` and `gameState.players`.
+    // Let's reconstruct a minimal gameState object for validation
+    const _validationGameState = {
+        properties,
+        players: players,
+    } as any;
+
+    const handleAction = async (action: 'MORTGAGE' | 'UNMORTGAGE' | 'BUILD_HOUSE' | 'SELL_HOUSE') => {
         if (!roomId || !playerId || propertyId === null) return;
 
         try {
@@ -240,27 +251,54 @@ export default function PropertyDetailsDialog({ open, onClose, propertyId, playe
 
                         {/* Actions */}
                         {isOwner && (
-                            <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
-                                {canMortgage && (
-                                    <Button
-                                        fullWidth
-                                        variant="outlined"
-                                        color="warning"
-                                        onClick={() => handleAction('MORTGAGE')}
-                                    >
-                                        Mortgage (+${mortgageValue})
-                                    </Button>
+                            <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {/* Housing Actions */}
+                                {!isMortgaged && propertyDef.houseCost && (
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="success"
+                                            disabled={!canBuildHouse(propertyId, playerId!, _validationGameState).allowed}
+                                            onClick={() => handleAction('BUILD_HOUSE')}
+                                        >
+                                            Build (-${propertyDef.houseCost})
+                                        </Button>
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            color="error"
+                                            disabled={!canSellHouse(propertyId, playerId!, _validationGameState).allowed}
+                                            onClick={() => handleAction('SELL_HOUSE')}
+                                        >
+                                            Sell (+${Math.floor(propertyDef.houseCost / 2)})
+                                        </Button>
+                                    </Box>
                                 )}
-                                {canUnmortgage && (
-                                    <Button
-                                        fullWidth
-                                        variant="contained"
-                                        color="success"
-                                        onClick={() => handleAction('UNMORTGAGE')}
-                                    >
-                                        Unmortgage (-${unmortgageCost})
-                                    </Button>
-                                )}
+
+                                {/* Mortgage Actions */}
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    {isMortgaged ? (
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="warning"
+                                            onClick={() => handleAction('UNMORTGAGE')}
+                                        >
+                                            Unmortgage (-${unmortgageCost})
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
+                                            color="warning"
+                                            disabled={propertyState?.houses > 0} // Can't mortgage if houses exist
+                                            onClick={() => handleAction('MORTGAGE')}
+                                        >
+                                            Mortgage (+${mortgageValue})
+                                        </Button>
+                                    )}
+                                </Box>
                             </Box>
                         )}
                     </Box>

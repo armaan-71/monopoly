@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GameState } from '@/types/game';
-import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect } from '@/utils/gameLogic';
+import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect, canBuildHouse, canSellHouse } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE';
 
 export async function POST(request: Request) {
     try {
@@ -249,6 +249,57 @@ export async function POST(request: Request) {
                 } else {
                     return NextResponse.json({ error: 'Cannot unmortgage this property' }, { status: 400 });
                 }
+                break;
+            }
+
+            case 'BUILD_HOUSE': {
+                if (typeof propertyId !== 'number') return NextResponse.json({ error: 'Missing propertyId' }, { status: 400 });
+
+                const validation = canBuildHouse(propertyId, playerId, gameState);
+                if (!validation.allowed) {
+                    return NextResponse.json({ error: validation.reason }, { status: 400 });
+                }
+
+                const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+                const player = newState.players[playerIndex];
+                const houseCost = propertyDef?.houseCost || 0;
+
+                // Execute Build
+                player.money -= houseCost;
+                newState.properties[propertyId].houses += 1;
+
+                const newCount = newState.properties[propertyId].houses;
+                const type = newCount === 5 ? 'Hotel' : 'House';
+                const msg = `${player.name} built a ${type} on ${propertyDef?.name}`;
+
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
+                break;
+            }
+
+            case 'SELL_HOUSE': {
+                if (typeof propertyId !== 'number') return NextResponse.json({ error: 'Missing propertyId' }, { status: 400 });
+
+                const validation = canSellHouse(propertyId, playerId, gameState);
+                if (!validation.allowed) {
+                    return NextResponse.json({ error: validation.reason }, { status: 400 });
+                }
+
+                const propertyDef = BOARD_CONFIG.find(p => p.id === propertyId);
+                const player = newState.players[playerIndex];
+                const houseCost = propertyDef?.houseCost || 0;
+
+                // Execute Sell (Half price)
+                const refund = Math.floor(houseCost / 2);
+                player.money += refund;
+                newState.properties[propertyId].houses -= 1;
+
+                const msg = `${player.name} sold a House/Hotel on ${propertyDef?.name}`;
+
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
                 break;
             }
 

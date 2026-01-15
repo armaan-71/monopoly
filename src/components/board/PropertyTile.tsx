@@ -1,9 +1,17 @@
 'use client';
 
-import { Paper, Typography, Box } from '@mui/material';
+import { Paper, Typography, Box, keyframes } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { PropertyConfig, PropertyState, PropertyGroup } from '@/types/game';
 import { getPlayerColor } from '@/constants/visuals';
+import HomeIcon from '@mui/icons-material/Home';
+import ApartmentIcon from '@mui/icons-material/Apartment';
+
+const pulseAnimation = keyframes`
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
+`;
 
 interface PropertyTileProps {
     config: PropertyConfig;
@@ -96,7 +104,10 @@ export default function PropertyTile({
                         bgcolor: headerColor,
                         borderBottom: `1px solid ${theme.palette.grey[800]}`,
                         filter: isMortgaged ? 'grayscale(100%)' : 'none',
-                        position: 'relative'
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                 >
                     {isMortgaged && (
@@ -111,6 +122,37 @@ export default function PropertyTile({
                             <Typography variant="caption" sx={{ color: 'white', fontWeight: 'bold', fontSize: '0.5rem', letterSpacing: 1 }}>
                                 MORTGAGED
                             </Typography>
+                        </Box>
+                    )}
+
+                    {/* Housing Visuals - Centered in Header */}
+                    {!isMortgaged && houseCount > 0 && (
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 0.5,
+                                zIndex: 10,
+                                animation: `${pulseAnimation} 2s infinite ease-in-out`
+                            }}
+                        >
+                            {houseCount === 5 ? (
+                                <ApartmentIcon sx={{ color: 'white', fontSize: '1.4rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
+                            ) : (
+                                <>
+                                    <HomeIcon sx={{ color: 'white', fontSize: '1.1rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
+                                    <Typography variant="caption" sx={{
+                                        color: 'white',
+                                        fontWeight: '900',
+                                        fontSize: '0.9rem',
+                                        textShadow: '0px 1px 2px rgba(0,0,0,0.8)',
+                                        mt: 0.2
+                                    }}>
+                                        x{houseCount}
+                                    </Typography>
+                                </>
+                            )}
                         </Box>
                     )}
                 </Box>
@@ -149,23 +191,7 @@ export default function PropertyTile({
                 )}
             </Box>
 
-            {/* Houses / Hotels Indicator */}
-            {houseCount > 0 && !isMortgaged && (
-                <Box sx={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 0.5, zIndex: 2 }}>
-                    {Array.from({ length: houseCount }).map((_, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 6,
-                                height: 6,
-                                bgcolor: houseCount === 5 ? 'red' : 'green', // Hotel vs House
-                                borderRadius: '50%',
-                                border: '1px solid white'
-                            }}
-                        />
-                    ))}
-                </Box>
-            )}
+
 
             {/* Players on Tile (Avatars) */}
             {playersOnTile.length > 0 && (
