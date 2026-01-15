@@ -46,6 +46,7 @@ We do not use individual SQL tables for properties, houses, or trades. Instead, 
 We use two main tables.
 
 ### 1. `rooms`
+
 Tracks the active game session.
 
 ```sql
@@ -58,6 +59,7 @@ create table rooms (
 ```
 
 ### 2. `players`
+
 Links a user to a room.
 
 ```sql
@@ -110,70 +112,70 @@ export interface GameState {
 ### Theme Configuration (`src/components/theme/theme.ts`)
 
 ```typescript
-import { createTheme } from '@mui/material/styles';
+import { createTheme } from "@mui/material/styles";
 
 export const gameTheme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
+      main: "#1976d2",
+      light: "#42a5f5",
+      dark: "#1565c0",
     },
     secondary: {
-      main: '#dc004e',
-      light: '#ff4081',
-      dark: '#9a0036',
+      main: "#dc004e",
+      light: "#ff4081",
+      dark: "#9a0036",
     },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: "#f5f5f5",
+      paper: "#ffffff",
     },
     success: {
-      main: '#4caf50',
+      main: "#4caf50",
     },
     warning: {
-      main: '#ff9800',
+      main: "#ff9800",
     },
     error: {
-      main: '#f44336',
+      main: "#f44336",
     },
     brown: {
-      main: '#8B4513',
+      main: "#8B4513",
     },
     lightBlue: {
-      main: '#87CEEB',
+      main: "#87CEEB",
     },
     pink: {
-      main: '#FF69B4',
+      main: "#FF69B4",
     },
     orange: {
-      main: '#FF8C00',
+      main: "#FF8C00",
     },
     red: {
-      main: '#FF0000',
+      main: "#FF0000",
     },
     yellow: {
-      main: '#FFD700',
+      main: "#FFD700",
     },
     green: {
-      main: '#228B22',
+      main: "#228B22",
     },
     darkBlue: {
-      main: '#00008B',
+      main: "#00008B",
     },
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
-      fontSize: '2.5rem',
+      fontSize: "2.5rem",
       fontWeight: 700,
     },
     h2: {
-      fontSize: '2rem',
+      fontSize: "2rem",
       fontWeight: 600,
     },
     h3: {
-      fontSize: '1.75rem',
+      fontSize: "1.75rem",
       fontWeight: 600,
     },
   },
@@ -182,11 +184,11 @@ export const gameTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 8,
-          textTransform: 'none',
+          textTransform: "none",
           fontWeight: 600,
         },
         contained: {
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
         },
       },
     },
@@ -194,7 +196,7 @@ export const gameTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
         },
       },
     },
@@ -208,26 +210,26 @@ export const gameTheme = createTheme({
   },
 });
 
-declare module '@mui/material/styles' {
+declare module "@mui/material/styles" {
   interface Palette {
-    brown: Palette['primary'];
-    lightBlue: Palette['primary'];
-    pink: Palette['primary'];
-    orange: Palette['primary'];
-    red: Palette['primary'];
-    yellow: Palette['primary'];
-    green: Palette['primary'];
-    darkBlue: Palette['primary'];
+    brown: Palette["primary"];
+    lightBlue: Palette["primary"];
+    pink: Palette["primary"];
+    orange: Palette["primary"];
+    red: Palette["primary"];
+    yellow: Palette["primary"];
+    green: Palette["primary"];
+    darkBlue: Palette["primary"];
   }
   interface PaletteOptions {
-    brown?: PaletteOptions['primary'];
-    lightBlue?: PaletteOptions['primary'];
-    pink?: PaletteOptions['primary'];
-    orange?: PaletteOptions['primary'];
-    red?: PaletteOptions['primary'];
-    yellow?: PaletteOptions['primary'];
-    green?: PaletteOptions['primary'];
-    darkBlue?: PaletteOptions['primary'];
+    brown?: PaletteOptions["primary"];
+    lightBlue?: PaletteOptions["primary"];
+    pink?: PaletteOptions["primary"];
+    orange?: PaletteOptions["primary"];
+    red?: PaletteOptions["primary"];
+    yellow?: PaletteOptions["primary"];
+    green?: PaletteOptions["primary"];
+    darkBlue?: PaletteOptions["primary"];
   }
 }
 ```
@@ -235,11 +237,11 @@ declare module '@mui/material/styles' {
 ### Theme Provider (`src/components/theme/ThemeProvider.tsx`)
 
 ```typescript
-'use client';
+"use client";
 
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { gameTheme } from './theme';
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { gameTheme } from "./theme";
 
 export default function AppThemeProvider({
   children,
@@ -270,7 +272,7 @@ Create a `.env.local` file:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_publishable_key
 ```
 
 ### Run Dev Server
@@ -302,8 +304,8 @@ npx supabase gen types typescript --project-id <id> > src/types/supabase.ts
 ### Example Property Tile Component
 
 ```typescript
-import { Paper, Typography, Box } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { Paper, Typography, Box } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 
 interface PropertyTileProps {
   name: string;
@@ -321,7 +323,7 @@ export default function PropertyTile({
   houses = 0,
 }: PropertyTileProps) {
   const theme = useTheme();
-  
+
   // Map color group to theme color
   const colorMap: Record<string, string> = {
     brown: theme.palette.brown.main,
@@ -333,27 +335,27 @@ export default function PropertyTile({
     green: theme.palette.green.main,
     darkBlue: theme.palette.darkBlue.main,
   };
-  
+
   const backgroundColor = colorMap[colorGroup] || theme.palette.grey[300];
-  
+
   return (
     <Paper
       elevation={3}
       sx={{
         width: 120,
         height: 160,
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         border: `2px solid ${backgroundColor}`,
       }}
     >
       <Box
         sx={{
           bgcolor: backgroundColor,
-          color: 'white',
+          color: "white",
           py: 1,
           px: 2,
-          textAlign: 'center',
+          textAlign: "center",
         }}
       >
         <Typography variant="subtitle2" fontWeight="bold">
@@ -371,9 +373,9 @@ export default function PropertyTile({
         )}
       </Box>
       {houses > 0 && (
-        <Box sx={{ p: 1, bgcolor: 'grey.100' }}>
+        <Box sx={{ p: 1, bgcolor: "grey.100" }}>
           <Typography variant="caption">
-            {houses === 5 ? 'HOTEL' : `${houses} HOUSE${houses > 1 ? 'S' : ''}`}
+            {houses === 5 ? "HOTEL" : `${houses} HOUSE${houses > 1 ? "S" : ""}`}
           </Typography>
         </Box>
       )}
@@ -385,16 +387,16 @@ export default function PropertyTile({
 ### Example Game Button Component
 
 ```typescript
-import { Button } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
+import { Button } from "@mui/material";
+import { LoadingButton } from "@mui/lab";
 
 interface GameButtonProps {
   onClick: () => void;
   label: string;
   disabled?: boolean;
   loading?: boolean;
-  color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning';
-  variant?: 'contained' | 'outlined' | 'text';
+  color?: "primary" | "secondary" | "success" | "error" | "warning";
+  variant?: "contained" | "outlined" | "text";
   startIcon?: React.ReactNode;
 }
 
@@ -403,8 +405,8 @@ export default function GameButton({
   label,
   disabled = false,
   loading = false,
-  color = 'primary',
-  variant = 'contained',
+  color = "primary",
+  variant = "contained",
   startIcon,
 }: GameButtonProps) {
   if (loading) {
