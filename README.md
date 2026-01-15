@@ -67,7 +67,7 @@ create table players (
   id uuid primary key default gen_random_uuid(),
   room_id uuid references rooms(id),
   name text not null,
-  avatar_id string,                -- "top-hat", "car", etc.
+  avatar_id string,                -- "top-hat", "car", etc. | NOTE: supabase uses terminology "text" instead of "string"
   is_host boolean default false
 );
 ```
