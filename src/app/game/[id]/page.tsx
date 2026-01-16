@@ -8,6 +8,7 @@ import PropertyDashboard from '@/components/game/PropertyDashboard';
 import GameInfoPanel from '@/components/game/GameInfoPanel';
 import PropertyDetailsDialog from '@/components/game/PropertyDetailsDialog';
 import CardDialog from '@/components/game/CardDialog';
+import AuctionModal from '@/components/game/AuctionModal';
 import { useRealtimeGame } from '@/hooks/useRealtimeGame';
 import { useGameStore } from '@/store/gameStore';
 
@@ -46,6 +47,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
             />
 
             <CardDialog roomId={roomId} playerId={playerId} />
+            <AuctionModal roomId={roomId} playerId={playerId} />
 
             <Container maxWidth="xl" disableGutters sx={{ height: '100%' }}>
 

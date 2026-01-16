@@ -43,6 +43,15 @@ export interface PropertyState {
     isMortgaged: boolean;
 }
 
+export interface AuctionState {
+    propertyId: number;
+    highestBid: number;
+    highestBidder: string | null; // playerId
+    activeBidders: string[]; // List of playerIds still in the auction
+    status: 'active' | 'completed';
+    endTime: number;
+}
+
 export interface GameState {
     turnIndex: number;
     players: PlayerState[];
@@ -53,4 +62,5 @@ export interface GameState {
     isGameStarted: boolean; // Lobby vs Playing
     winner: PlayerId | null;
     currentCard: Card | null;
+    auction: AuctionState | null;
 }

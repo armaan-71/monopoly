@@ -32,7 +32,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         if (!isMyTurn) return false;
         if (!lastAction) return false;
         const action = lastAction.toLowerCase();
-        return action.includes('rolled') || action.includes('bought') || action.includes('rent') || action.includes('tax') || action.includes('jail') || action.includes('sent');
+        return action.includes('rolled') || action.includes('bought') || action.includes('rent') || action.includes('tax') || action.includes('jail') || action.includes('sent') || action.includes('auction') || action.includes('won') || action.includes('bids');
     }, [isMyTurn, lastAction]);
 
     const canBuy = useMemo(() => {
@@ -41,7 +41,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         return canBuyProperty(pos, myPlayer.money, properties[pos]?.owner);
     }, [isMyTurn, hasRolled, myPlayer, properties]);
 
-    const handleAction = async (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'PAY_BAIL' | 'USE_GOJF') => {
+    const handleAction = async (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'PAY_BAIL' | 'USE_GOJF' | 'DECLINE_BUY') => {
         if (!roomId || !playerId) return;
         setLoading(true);
 
@@ -142,14 +142,27 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
                     {hasRolled && (
                         <Box sx={{ display: 'grid', gridTemplateColumns: canBuy ? '1fr 1fr' : '1fr', gap: 1.5 }}>
                             {canBuy && (
-                                <Button
-                                    variant="outlined"
-                                    size="large"
-                                    onClick={() => handleAction('BUY_PROPERTY')}
-                                    disabled={loading}
-                                >
-                                    Buy
-                                </Button>
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        size="large"
+                                        onClick={() => handleAction('BUY_PROPERTY')}
+                                        disabled={loading}
+                                        sx={{ flex: 1 }}
+                                    >
+                                        Buy
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        color="secondary"
+                                        size="large"
+                                        onClick={() => handleAction('DECLINE_BUY')}
+                                        disabled={loading}
+                                        sx={{ flex: 1 }}
+                                    >
+                                        Auction
+                                    </Button>
+                                </Box>
                             )}
                             <Button
                                 variant="contained"
