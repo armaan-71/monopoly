@@ -41,7 +41,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         return canBuyProperty(pos, myPlayer.money, properties[pos]?.owner);
     }, [isMyTurn, hasRolled, myPlayer, properties]);
 
-    const handleAction = async (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN') => {
+    const handleAction = async (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'PAY_BAIL' | 'USE_GOJF') => {
         if (!roomId || !playerId) return;
         setLoading(true);
 
@@ -89,15 +89,54 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
             {isMyTurn && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {!hasRolled && (
-                        <Button
-                            variant="contained"
-                            size="large"
-                            onClick={() => handleAction('ROLL_DICE')}
-                            disabled={loading}
-                            sx={{ boxShadow: 'none', py: 1.5 }}
-                        >
-                            Roll Dice
-                        </Button>
+                        <>
+                            {myPlayer.isInJail ? (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Typography variant="caption" align="center" color="error">
+                                        You are in Jail!
+                                    </Typography>
+
+                                    <Button
+                                        variant="contained"
+                                        size="large"
+                                        onClick={() => handleAction('ROLL_DICE')}
+                                        disabled={loading}
+                                    >
+                                        Roll Doubles
+                                    </Button>
+
+                                    <Button
+                                        variant="outlined"
+                                        color="warning"
+                                        onClick={() => handleAction('PAY_BAIL')}
+                                        disabled={loading || myPlayer.money < 50}
+                                    >
+                                        Pay Bail ($50)
+                                    </Button>
+
+                                    {myPlayer.heldCards?.some(c => c.action === 'JAIL_FREE') && (
+                                        <Button
+                                            variant="outlined"
+                                            color="info"
+                                            onClick={() => handleAction('USE_GOJF')}
+                                            disabled={loading}
+                                        >
+                                            Use GOJF Card
+                                        </Button>
+                                    )}
+                                </Box>
+                            ) : (
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    onClick={() => handleAction('ROLL_DICE')}
+                                    disabled={loading}
+                                    sx={{ boxShadow: 'none', py: 1.5 }}
+                                >
+                                    Roll Dice
+                                </Button>
+                            )}
+                        </>
                     )}
 
                     {hasRolled && (

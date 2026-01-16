@@ -59,50 +59,77 @@ export default function PropertyDashboard({ playerId, onPropertyClick }: { playe
                     Your Portfolio
                 </Typography>
 
-                {myProperties.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        No properties owned yet.
-                    </Typography>
-                ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {myProperties.map(prop => {
-                            const state = getPropertyState(prop.id);
-                            const isMortgaged = state?.isMortgaged;
-                            const color = getGroupColor(prop.group);
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {/* Empty State */}
+                    {myProperties.length === 0 && (!me?.heldCards || me.heldCards.length === 0) && (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No assets owned yet.
+                        </Typography>
+                    )}
 
-                            return (
-                                <Box
-                                    key={prop.id}
-                                    onClick={() => onPropertyClick?.(prop.id)}
-                                    sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        p: 1.5,
-                                        borderRadius: 2,
-                                        bgcolor: 'rgba(255,255,255,0.05)',
-                                        cursor: 'pointer',
-                                        borderLeft: `6px solid ${color}`,
-                                        '&:hover': {
-                                            bgcolor: 'rgba(255,255,255,0.1)'
-                                        }
-                                    }}
-                                >
-                                    <Box sx={{ flex: 1, pl: 1 }}>
-                                        <Typography variant="body1" fontWeight="500">
-                                            {prop.name}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {prop.group === 'special' ? 'Special' : `Rent: $${prop.rent?.[state?.houses || 0] || 0}`}
-                                        </Typography>
-                                    </Box>
-                                    {isMortgaged && (
-                                        <Chip label="MORTGAGED" color="error" size="small" variant="outlined" />
-                                    )}
+                    {/* Held Cards */}
+                    {me?.heldCards?.map((card, i) => (
+                        <Box
+                            key={`card-${i}`}
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: 'rgba(255,165,0,0.15)', // Orange tint
+                                borderLeft: `6px solid ${theme.palette.warning.main}`,
+                            }}
+                        >
+                            <Box sx={{ flex: 1, pl: 1 }}>
+                                <Typography variant="body1" fontWeight="500">
+                                    Get Out of Jail Free
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Keep or Use
+                                </Typography>
+                            </Box>
+                            <Chip label="SPECIAL" color="warning" size="small" variant="outlined" />
+                        </Box>
+                    ))}
+
+                    {/* Properties */}
+                    {myProperties.map(prop => {
+                        const state = getPropertyState(prop.id);
+                        const isMortgaged = state?.isMortgaged;
+                        const color = getGroupColor(prop.group);
+
+                        return (
+                            <Box
+                                key={prop.id}
+                                onClick={() => onPropertyClick?.(prop.id)}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    p: 1.5,
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(255,255,255,0.05)',
+                                    cursor: 'pointer',
+                                    borderLeft: `6px solid ${color}`,
+                                    '&:hover': {
+                                        bgcolor: 'rgba(255,255,255,0.1)'
+                                    }
+                                }}
+                            >
+                                <Box sx={{ flex: 1, pl: 1 }}>
+                                    <Typography variant="body1" fontWeight="500">
+                                        {prop.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {prop.group === 'special' ? 'Special' : `Rent: $${prop.rent?.[state?.houses || 0] || 0}`}
+                                    </Typography>
                                 </Box>
-                            );
-                        })}
-                    </Box>
-                )}
+                                {isMortgaged && (
+                                    <Chip label="MORTGAGED" color="error" size="small" variant="outlined" />
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Box>
             </Paper>
         </Box>
     );

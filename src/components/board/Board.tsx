@@ -1,23 +1,15 @@
 'use client';
 
 import { Box } from '@mui/material';
+import { motion } from 'framer-motion';
 import PropertyTile from './PropertyTile';
+import PlayerToken from './PlayerToken';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { useGameStore } from '@/store/gameStore';
+import { getGridPosition } from '@/constants/visuals';
 
 export default function Board({ children, onPropertyClick }: { children?: React.ReactNode; onPropertyClick?: (id: number) => void }) {
     const { players, properties } = useGameStore();
-
-    // Helper to find which players are on a specific tile index
-    const getPlayersOnTile = (tileIndex: number) => {
-        return players
-            .map((p, index) => ({ ...p, originalIndex: index })) // Track original index for color assignment
-            .filter((p) => p.position === tileIndex)
-            .map((p) => ({
-                name: p.name,
-                index: p.originalIndex // Use index for consistent coloring
-            }));
-    };
 
     // Helper to find owner index
     const getOwnerIndex = (propertyId: number) => {
@@ -61,7 +53,7 @@ export default function Board({ children, onPropertyClick }: { children?: React.
             <PropertyTile
                 config={BOARD_CONFIG[index]}
                 state={properties[index]}
-                playersOnTile={getPlayersOnTile(index)}
+                // playersOnTile removed - handled by PlayerLayer
                 ownerIndex={getOwnerIndex(index)}
                 ownerName={getOwnerName(index)}
             />
@@ -72,8 +64,10 @@ export default function Board({ children, onPropertyClick }: { children?: React.
         <Box
             sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(11, 1fr)',
-                gridTemplateRows: 'repeat(11, 1fr)',
+                // Standard Monopoly has corners ~1.6x larger than tiles
+                // 1.6 + 9 + 1.6 = 12.2 total units
+                gridTemplateColumns: 'repeat(11, minmax(0, 1fr))',
+                gridTemplateRows: 'repeat(11, minmax(0, 1fr))',
                 gap: 0.5,
                 width: '100%',
                 maxWidth: '850px',
@@ -81,6 +75,7 @@ export default function Board({ children, onPropertyClick }: { children?: React.
                 margin: '0 auto',
                 p: 1,
                 bgcolor: 'transparent',
+                position: 'relative' // For PlayerLayer
             }}
         >
             {/* Top Row (20-30) */}
@@ -131,6 +126,61 @@ export default function Board({ children, onPropertyClick }: { children?: React.
                 <Box sx={{ zIndex: 2, width: '100%', p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {children}
                 </Box>
+            </Box>
+
+            {/* PLAYER LAYER */}
+            <Box sx={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                pointerEvents: 'none', // Allow clicking through to tiles
+                zIndex: 50,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(11, minmax(0, 1fr))',
+                gridTemplateRows: 'repeat(11, minmax(0, 1fr))',
+                gap: 0.5,
+            }}>
+                {players.map((player, index) => {
+                    const { gridColumn, gridRow } = getGridPosition(player.position);
+
+                    // Jail Offset Logic
+                    // If in Jail (Pos 10), shift to center/inner.
+                    // If Just Visiting (Pos 10), shift to outer track.
+                    let jailTransform = '';
+                    if (player.position === 10) {
+                        if (player.isInJail) {
+                            // Inner Cell (Top Right of Bottom Left tile)
+                            jailTransform = 'translate(25%, -25%)';
+                        } else {
+                            // Visiting (Outer Track)
+                            jailTransform = 'translate(-30%, 30%)';
+                        }
+                    }
+
+                    return (
+                        <Box
+                            component={motion.div}
+                            layout // <--- This magic prop animates grid changes!
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            key={player.id}
+                            sx={{
+                                gridColumn,
+                                gridRow,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transform: jailTransform, // Apply Jail shift
+                                zIndex: 100 // Ensure above board
+                            }}
+                        >
+                            <PlayerToken
+                                name={player.name}
+                                color={['#f44336', '#2196f3', '#4caf50', '#ffeb3b'][index % 4]}
+                                index={player.position}
+                                isInJail={player.isInJail}
+                            />
+                        </Box>
+                    );
+                })}
             </Box>
         </Box>
     );

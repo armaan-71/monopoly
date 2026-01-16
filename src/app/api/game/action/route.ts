@@ -4,7 +4,7 @@ import { GameState } from '@/types/game';
 import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect, canBuildHouse, canSellHouse } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE' | 'PAY_BAIL' | 'USE_GOJF';
 
 export async function POST(request: Request) {
     try {
@@ -132,33 +132,31 @@ export async function POST(request: Request) {
 
                             const effect = applyCardEffect(card, player, newPosition);
 
-                            // Apply changes
-                            player.money = effect.newMoney;
+                            // Handle Held Card
+                            if (effect.heldCard) {
+                                if (!player.heldCards) player.heldCards = [];
+                                player.heldCards.push(effect.heldCard);
+                            } else {
+                                // Only apply normal immediate effects if it wasn't held
 
-                            if (effect.newPosition !== newPosition) {
-                                player.position = effect.newPosition;
-                                // Handle potential "Pass Go" on card movement if needed (simple check)
-                                if (effect.newPosition < newPosition && effect.newPosition === 0) { // e.g. Advance to Go
-                                    // "Advance to Go" usually implies collecting $200. 
-                                    // Our applyCardEffect handles exact position. 
-                                    // Standard "Pass Go" logic for *movement* via card isn't fully robust here but acceptable for MVP.
-                                    // In 'applyCardEffect' we didn't add $200 for passing go, only for "Advance to Go" card value potentially?
-                                    // Actually 'Advance to Go' card value is 0 (pos). 
-                                    // We rely on the card text "Collect $200" or explicit MONEY action if separated. 
-                                    // Standard Monopoly rules: "Advance to Go (Collect $200)". If we move to 0, does the game trigger $200? 
-                                    // For now, let's assume the Card Text covers the logic or we just move.
-                                    // Actually, standard "Advance to Go" is usually a MOVE card to 0. The $200 comes from "Passing Go" logic which *normally* triggers.
-                                    // Since we force position, we should probably check pass go manually or just add money if it's "Advance to Go".
-                                    if (card.text.includes('Collect $200')) {
-                                        player.money += 200;
+                                // Apply changes
+                                player.money = effect.newMoney;
+
+                                if (effect.newPosition !== newPosition) {
+                                    player.position = effect.newPosition;
+                                    // Handle potential "Pass Go" on card movement if needed (simple check)
+                                    if (effect.newPosition < newPosition && effect.newPosition === 0) { // e.g. Advance to Go
+                                        if (card.text.includes('Collect $200')) {
+                                            player.money += 200;
+                                        }
                                     }
                                 }
-                            }
 
-                            if (effect.sendToJail) {
-                                player.isInJail = true;
-                                player.position = 10;
-                                player.jailTurns = 0;
+                                if (effect.sendToJail) {
+                                    player.isInJail = true;
+                                    player.position = 10;
+                                    player.jailTurns = 0;
+                                }
                             }
 
                             message += ` Drew ${cardType === 'CHANCE' ? 'Chance' : 'Community Chest'}: ${card.text}`;
@@ -272,6 +270,53 @@ export async function POST(request: Request) {
                 const type = newCount === 5 ? 'Hotel' : 'House';
                 const msg = `${player.name} built a ${type} on ${propertyDef?.name}`;
 
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
+                break;
+            }
+
+            case 'PAY_BAIL': {
+                const player = newState.players[playerIndex];
+                if (!player.isInJail) return NextResponse.json({ error: 'Not in jail' }, { status: 400 });
+                if (player.money < 50) return NextResponse.json({ error: 'Insufficient funds' }, { status: 400 });
+
+                player.money -= 50;
+                player.isInJail = false;
+                player.jailTurns = 0;
+
+                const msg = `${player.name} paid $50 bail`;
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
+                break;
+            }
+
+            case 'USE_GOJF': {
+                const player = newState.players[playerIndex];
+                if (!player.isInJail) return NextResponse.json({ error: 'Not in jail' }, { status: 400 });
+
+                // Check ownership
+                // Assuming we simply remove the first JAIL_FREE card found
+                // Note: We need to handle this robustly if `heldCards` is array of full objects or IDs.
+                // Current types say `heldCards: Card[]`.
+                const cardIndex = player.heldCards?.findIndex(c => c.action === 'JAIL_FREE');
+
+                if (cardIndex === undefined || cardIndex === -1) {
+                    return NextResponse.json({ error: 'No Get Out of Jail Free card' }, { status: 400 });
+                }
+
+                // Remove card
+                // Note: We might want to return it to the deck, but deck state is currently stateless random.
+                // So just removing from player is sufficient for now.
+                if (player.heldCards) {
+                    player.heldCards.splice(cardIndex, 1);
+                }
+
+                player.isInJail = false;
+                player.jailTurns = 0;
+
+                const msg = `${player.name} used a Get Out of Jail Free card`;
                 newState.lastAction = msg;
                 if (!newState.log) newState.log = [];
                 newState.log.push(msg);

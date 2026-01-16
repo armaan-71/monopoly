@@ -50,6 +50,7 @@ export async function POST(request: Request) {
             isInJail: false,
             jailTurns: 0,
             avatarId,
+            heldCards: [],
         };
 
         const updatedGameState = {

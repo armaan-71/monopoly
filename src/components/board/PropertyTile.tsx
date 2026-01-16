@@ -16,19 +16,16 @@ const pulseAnimation = keyframes`
 interface PropertyTileProps {
     config: PropertyConfig;
     state?: PropertyState;
-    playersOnTile?: string[]; // array of avatarIds or names
 }
 
 export default function PropertyTile({
     config,
     state,
-    playersOnTile = [],
     ownerIndex = -1,
     ownerName,
 }: {
     config: PropertyConfig;
     state?: PropertyState;
-    playersOnTile?: Array<{ name: string; index: number }>;
     ownerIndex?: number;
     ownerName?: string;
 }) {
@@ -45,6 +42,8 @@ export default function PropertyTile({
             case 'yellow': return theme.palette.yellow.main;
             case 'green': return theme.palette.green.main;
             case 'darkBlue': return theme.palette.darkBlue.main;
+            case 'railroad': return '#444444'; // Dark Gray
+            case 'utility': return '#b0bec5'; // Pastel Gray-Blue (or use a light yellow like #fff59d)
             default: return theme.palette.grey[300];
         }
     };
@@ -100,7 +99,7 @@ export default function PropertyTile({
             {!isSpecial && (
                 <Box
                     sx={{
-                        height: '25%',
+                        height: '22%',
                         bgcolor: headerColor,
                         borderBottom: `1px solid ${theme.palette.grey[800]}`,
                         filter: isMortgaged ? 'grayscale(100%)' : 'none',
@@ -138,18 +137,18 @@ export default function PropertyTile({
                             }}
                         >
                             {houseCount === 5 ? (
-                                <ApartmentIcon sx={{ color: 'white', fontSize: '1.4rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
+                                <ApartmentIcon sx={{ color: 'white', fontSize: '1.0rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
                             ) : (
                                 <>
-                                    <HomeIcon sx={{ color: 'white', fontSize: '1.1rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
+                                    <HomeIcon sx={{ color: 'white', fontSize: '0.8rem', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.5))' }} />
                                     <Typography variant="caption" sx={{
                                         color: 'white',
                                         fontWeight: '900',
-                                        fontSize: '0.9rem',
+                                        fontSize: '0.6rem',
                                         textShadow: '0px 1px 2px rgba(0,0,0,0.8)',
                                         mt: 0.2
                                     }}>
-                                        x{houseCount}
+                                        {"x "}{houseCount}
                                     </Typography>
                                 </>
                             )}
@@ -185,7 +184,7 @@ export default function PropertyTile({
 
                 {/* Price */}
                 {config.price && !isMortgaged && (
-                    <Typography variant="caption" sx={{ fontSize: '0.6rem', mt: 0.5, opacity: 0.7 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.55rem', mt: 0.5, opacity: 0.7 }}>
                         ${config.price}
                     </Typography>
                 )}
@@ -193,48 +192,7 @@ export default function PropertyTile({
 
 
 
-            {/* Players on Tile (Avatars) */}
-            {playersOnTile.length > 0 && (
-                <Box sx={{
-                    position: 'absolute',
-                    bottom: 2,
-                    left: 0,
-                    right: 0,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    flexWrap: 'wrap',
-                    padding: '0 2px',
-                    gap: 0.5,
-                    zIndex: 5
-                }}>
-                    {playersOnTile.map((p, i) => {
-                        const pColor = getPlayerColor(p.index);
-                        const initials = p.name.substring(0, 2).toUpperCase();
-                        return (
-                            <Box
-                                key={i}
-                                sx={{
-                                    width: 18,
-                                    height: 18,
-                                    bgcolor: pColor,
-                                    borderRadius: '50%',
-                                    border: '1.5px solid white',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#fff',
-                                    fontSize: '0.5rem',
-                                    fontWeight: 'bold',
-                                    boxShadow: 2
-                                }}
-                                title={p.name}
-                            >
-                                {initials}
-                            </Box>
-                        );
-                    })}
-                </Box>
-            )}
+
         </Paper>
     );
 }

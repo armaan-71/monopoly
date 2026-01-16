@@ -10,6 +10,7 @@ export interface PlayerState {
     isInJail: boolean;
     jailTurns: number;
     avatarId: string;
+    heldCards: Card[];
 }
 
 export type PropertyGroup =
@@ -21,7 +22,9 @@ export type PropertyGroup =
     | 'yellow'
     | 'green'
     | 'darkBlue'
-    | 'special' // Utilities, Railroads
+    | 'railroad'
+    | 'utility'
+    | 'special' // Use for things that are truly special but not ownable in the standard way if any, or legacy
     | 'none';   // Chance, Chest, Tax, Go, Jail, Free Parking, Go To Jail
 
 export interface PropertyConfig {

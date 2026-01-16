@@ -148,11 +148,13 @@ export const applyCardEffect = (
     newMoney: number,
     newPosition: number,
     sendToJail: boolean,
+    heldCard: Card | null,
     log: string
 } => {
     let newMoney = player.money;
     let newPosition = currentPosition;
     let sendToJail = false;
+    let heldCard: Card | null = null;
     let log = '';
 
     switch (card.action) {
@@ -181,12 +183,12 @@ export const applyCardEffect = (
             log = `${player.name} went to Jail!`;
             break;
         case 'JAIL_FREE':
-            // TODO: Implement holding card
-            log = `${player.name} drew Get Out of Jail Free`;
+            heldCard = card;
+            log = `${player.name} kept "Get Out of Jail Free"`;
             break;
     }
 
-    return { newMoney, newPosition, sendToJail, log };
+    return { newMoney, newPosition, sendToJail, heldCard, log };
 };
 
 
