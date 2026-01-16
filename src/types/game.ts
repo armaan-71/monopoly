@@ -11,6 +11,7 @@ export interface PlayerState {
     jailTurns: number;
     avatarId: string;
     heldCards: Card[];
+    isBankrupt: boolean;
 }
 
 export type PropertyGroup =

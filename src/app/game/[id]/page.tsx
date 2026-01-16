@@ -124,7 +124,7 @@ export default function GameRoom({ params }: { params: Promise<{ id: string }> }
                         overflowY: 'auto' // Internal scroll if needed
                     }}>
                         {/* My Dashboard (Cash + Properties) */}
-                        <PropertyDashboard playerId={playerId} onPropertyClick={handlePropertyClick} />
+                        <PropertyDashboard playerId={playerId} roomId={roomId} onPropertyClick={handlePropertyClick} />
                     </Box>
 
                 </Box>

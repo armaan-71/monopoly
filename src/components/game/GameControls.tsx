@@ -165,7 +165,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
                                 color="error"
                                 size="large"
                                 onClick={() => handleAction('END_TURN')}
-                                disabled={loading}
+                                disabled={loading || myPlayer.money < 0}
                                 sx={{ boxShadow: 'none' }}
                             >
                                 End Turn

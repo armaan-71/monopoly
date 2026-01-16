@@ -4,7 +4,7 @@ import { GameState } from '@/types/game';
 import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect, canBuildHouse, canSellHouse } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE' | 'PAY_BAIL' | 'USE_GOJF' | 'DECLINE_BUY' | 'PLACE_BID' | 'FOLD_AUCTION' | 'RESOLVE_AUCTION';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE' | 'PAY_BAIL' | 'USE_GOJF' | 'DECLINE_BUY' | 'PLACE_BID' | 'FOLD_AUCTION' | 'RESOLVE_AUCTION' | 'DECLARE_BANKRUPTCY';
 
 export async function POST(request: Request) {
     try {
@@ -529,12 +529,60 @@ export async function POST(request: Request) {
             }
 
             case 'END_TURN': {
-                const nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
+                const player = newState.players[playerIndex];
+                if (player.money < 0) {
+                    return NextResponse.json({ error: 'You are in debt! You must sell assets or declare bankruptcy.' }, { status: 400 });
+                }
+
+                // Find next non-bankrupt player
+                let nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
+                let attempts = 0;
+                while (newState.players[nextIndex].isBankrupt && attempts < newState.players.length) {
+                    nextIndex = (nextIndex + 1) % gameState.players.length;
+                    attempts++;
+                }
+
                 newState.turnIndex = nextIndex;
-                newState.hasRolled = false; // Reset for next player
-                const msg = `${gameState.players[playerIndex].name} ended their turn`;
+                newState.hasRolled = false;
+                const msg = `${player.name} ended their turn`;
                 newState.lastAction = msg;
-                // No log push for end turn
+                break;
+            }
+
+            case 'DECLARE_BANKRUPTCY': {
+                // 1. Mark as bankrupt
+                const player = newState.players[playerIndex];
+                player.isBankrupt = true;
+                player.money = 0; // Reset debt to 0 visually (or keep negative? Rules say "Retired")
+
+                // 2. Return all properties to Bank (Owner = null)
+                // Or actually if they owe another player, that player gets them.
+                // For MVP, we assume Bank/Generic Surrender.
+                Object.keys(newState.properties).forEach(key => {
+                    const pid = parseInt(key);
+                    if (newState.properties[pid].owner === playerId) {
+                        newState.properties[pid].owner = null;
+                        newState.properties[pid].houses = 0;
+                        newState.properties[pid].isMortgaged = false;
+                    }
+                });
+
+                // 3. Log
+                const msg = `${player.name} declared BANKRUPTCY and left the game!`;
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
+
+                // 4. Force End Turn
+                // Find next valid player
+                let nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
+                let attempts = 0;
+                while (newState.players[nextIndex].isBankrupt && attempts < newState.players.length) {
+                    nextIndex = (nextIndex + 1) % gameState.players.length;
+                    attempts++;
+                }
+                newState.turnIndex = nextIndex;
+                newState.hasRolled = false;
                 break;
             }
 
