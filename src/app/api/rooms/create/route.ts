@@ -22,6 +22,8 @@ const INITIAL_GAME_STATE: GameState = {
     winner: null,
     currentCard: null,
     log: ['Game created'],
+    auction: null,
+    hasRolled: false
 };
 
 export async function POST() {

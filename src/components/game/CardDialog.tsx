@@ -17,10 +17,14 @@ interface CardDialogProps {
 }
 
 export default function CardDialog({ roomId, playerId }: CardDialogProps) {
-    const { currentCard } = useGameStore();
+    const { currentCard, turnIndex, players } = useGameStore();
     const theme = useTheme();
 
     if (!currentCard) return null;
+
+    // Only show to the player whose turn it is
+    const activePlayer = players[turnIndex];
+    if (activePlayer?.id !== playerId) return null;
 
     const handleDismiss = async () => {
         if (!playerId) return;

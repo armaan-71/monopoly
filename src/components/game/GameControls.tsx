@@ -18,7 +18,8 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
         dice,
         lastAction,
         log,
-        isGameStarted
+        isGameStarted,
+        hasRolled // From store
     } = useGameStore();
 
     const [loading, setLoading] = useState(false);
@@ -28,12 +29,7 @@ export default function GameControls({ roomId, playerId }: GameControlsProps) {
     const isMyTurn = currentPlayerIndex !== -1 && turnIndex === currentPlayerIndex;
     const myPlayer = players[currentPlayerIndex];
 
-    const hasRolled = useMemo(() => {
-        if (!isMyTurn) return false;
-        if (!lastAction) return false;
-        const action = lastAction.toLowerCase();
-        return action.includes('rolled') || action.includes('bought') || action.includes('rent') || action.includes('tax') || action.includes('jail') || action.includes('sent') || action.includes('auction') || action.includes('won') || action.includes('bids');
-    }, [isMyTurn, lastAction]);
+    // Legacy regex check removed. Trusting server state. 
 
     const canBuy = useMemo(() => {
         if (!isMyTurn || !hasRolled || !myPlayer) return false;

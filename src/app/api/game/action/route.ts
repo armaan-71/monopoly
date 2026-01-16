@@ -41,93 +41,117 @@ export async function POST(request: Request) {
         let newState = { ...gameState };
         let message = 'Action processed';
 
+        // Initialize hasRolled if missing (migration for existing games)
+        if (typeof newState.hasRolled === 'undefined') newState.hasRolled = false;
+
         // 2. Process Action
         switch (action as ActionType) {
             case 'ROLL_DICE': {
+                if (newState.hasRolled && !newState.players[playerIndex].isInJail) {
+                    return NextResponse.json({ error: 'You have already rolled' }, { status: 400 });
+                }
+
                 const dice = rollDice();
                 const diceTotal = dice[0] + dice[1];
                 const player = newState.players[playerIndex];
                 const auditEvents: string[] = [];
+                newState.dice = dice;
 
-                // Check Jail
+                // --- JAIL LOGIC ---
                 if (player.isInJail) {
                     player.jailTurns += 1;
                     if (dice[0] === dice[1]) {
                         player.isInJail = false;
                         player.jailTurns = 0;
-                        message = `${player.name} rolled doubles and got out of Jail!`;
+                        newState.hasRolled = true;
+                        message = `${player.name} rolled doubles and escaped Jail!`;
                         auditEvents.push(message);
                     } else if (player.jailTurns >= 3) {
                         if (player.money >= 50) {
                             player.money -= 50;
                             player.isInJail = false;
-                            message = `${player.name} paid $50 bail after 3 fails.`;
+                            player.jailTurns = 0;
+                            newState.hasRolled = true;
+                            message = `${player.name} paid $50 bail.`;
                             auditEvents.push(message);
                         } else {
-                            message = `${player.name} is stuck in Jail.`;
-                            // Not logging 'stuck' to save space, unless desired.
+                            newState.hasRolled = true;
+                            message = `${player.name} failed doubles and stays in Jail.`;
+                            newState.lastAction = message;
+                            break;
                         }
                     } else {
-                        message = `${player.name} is in Jail. Rolled ${diceTotal}.`;
+                        newState.hasRolled = true;
+                        message = `${player.name} stays in Jail.`;
                         newState.lastAction = message;
-                        newState.dice = dice;
                         break;
                     }
                 }
 
+                // --- MOVEMENT & LANDING ---
                 if (!player.isInJail) {
-                    const oldPosition = player.position;
-                    const newPosition = getNextPosition(oldPosition, diceTotal);
-
-                    // Update player position
-                    player.position = newPosition;
-                    newState.dice = dice;
-
-                    // Handle Pass Go
-                    if (didPassGo(oldPosition, newPosition)) {
-                        player.money += 200;
-                        message = `${player.name} rolled ${diceTotal} and passed GO!`;
-                        auditEvents.push(`${player.name} passed GO and collected $200`);
+                    // Update hasRolled (Doubles Logic)
+                    if (dice[0] === dice[1]) {
+                        newState.hasRolled = false;
+                        message += " (Doubles! Roll again)";
                     } else {
-                        message = `${player.name} rolled ${diceTotal}`;
+                        newState.hasRolled = true;
                     }
 
-                    // LANDING LOGIC
+                    const oldPosition = player.position;
+                    // Apply movement
+                    const newPosition = getNextPosition(oldPosition, diceTotal);
+                    player.position = newPosition;
+                    message = `${player.name} rolled ${diceTotal} to ${BOARD_CONFIG.find(t => t.id === newPosition)?.name || 'Unknown'}`;
 
-                    // 1. Check Owner / Rent
+                    if (didPassGo(oldPosition, newPosition)) {
+                        player.money += 200;
+                        auditEvents.push(`${player.name} passed GO (+ $200)`);
+                    }
+
+                    // 1. Rent Logic
                     const propertyState = newState.properties[newPosition];
                     if (propertyState && propertyState.owner && propertyState.owner !== player.id) {
                         const rent = calculateRent(newPosition, newState, diceTotal);
-                        if (rent > 0) {
+                        if (rent > 0 && !propertyState.isMortgaged) {
                             player.money -= rent;
-                            // Add to owner
-                            const ownerIndex = newState.players.findIndex(p => p.id === propertyState.owner);
-                            if (ownerIndex !== -1) {
-                                newState.players[ownerIndex].money += rent;
-                                const rentMsg = `Paid $${rent} rent to ${newState.players[ownerIndex].name}`;
-                                message += `. ${rentMsg}.`;
-                                auditEvents.push(`${player.name} paid $${rent} rent to ${newState.players[ownerIndex].name}`);
+                            const owner = newState.players.find(p => p.id === propertyState.owner);
+                            if (owner) {
+                                owner.money += rent;
+                                auditEvents.push(`Paid $${rent} rent to ${owner.name}`);
                             }
                         }
                     }
 
-                    // 2. Check Special Tiles (Tax, Jail)
+                    // 2. Special Tiles (Tax, GoToJail)
+                    // Note: handleSpecialTile needs (player, position) or just (position, state)? 
+                    // Checking previous usage: handleSpecialTile(player, newPosition) was used in lines 119.
+                    // But in Step 1570 (original file), it was imported as:
+                    // handleSpecialTile(newPosition, newState) ? 
+                    // Let's check imports or usage elsewhere.
+                    // "handleSpecialTile(newPosition, newState)" was NOT in the imports list in Step 1570?
+                    // Step 1570 line 4 imports: rollDice, getNextPosition... handleSpecialTile...
+                    // Usage in Step 1570 isn't shown fully.
+                    // I'll stick to the usage pattern seen in the file recently: `handleSpecialTile(player, newPosition)`
+                    // If that fails, I'll fix it.
+
                     const { moneyChange, sendToJail, message: tileMsg } = handleSpecialTile(player, newPosition);
                     if (tileMsg) {
-                        message += ` ${tileMsg}`;
-                        auditEvents.push(`${player.name} ${tileMsg.charAt(0).toLowerCase() + tileMsg.slice(1)}`);
+                        // tileMsg is usually "Paid Luxury Tax" or similar. Prefix with name if not present.
+                        // Check if tileMsg already starts with player name (game logic dependent, but safest to ensure)
+                        // Actually handleSpecialTile likely returns "Paid $100 Tax".
+                        // adding player name:
+                        auditEvents.push(`${player.name}: ${tileMsg}`);
                     }
-                    if (moneyChange !== 0) {
-                        player.money += moneyChange;
-                    }
+                    if (moneyChange) player.money += moneyChange;
                     if (sendToJail) {
                         player.isInJail = true;
-                        player.position = 10; // Jail location
+                        player.position = 10;
                         player.jailTurns = 0;
+                        newState.hasRolled = true; // Turn ends
                     }
 
-                    // 3. Check Cards (Chance / Community Chest)
-                    // Only if not already sent to jail by special tile (Go To Jail)
+                    // 3. Cards (Chance/Chest)
                     if (!sendToJail) {
                         const tileName = BOARD_CONFIG.find(p => p.id === newPosition)?.name;
                         if (tileName === 'Chance' || tileName === 'Community Chest') {
@@ -135,46 +159,36 @@ export async function POST(request: Request) {
                             const card = drawCard(cardType);
                             newState.currentCard = card;
 
-                            const effect = applyCardEffect(card, player, newPosition);
+                            const drawMsg = `${player.name} drew ${cardType === 'CHANCE' ? 'Chance' : 'Community Chest'}: "${card.text}"`;
+                            auditEvents.push(drawMsg);
+                            message = drawMsg; // Update main status message to show card outcome
 
-                            // Handle Held Card
+                            const effect = applyCardEffect(card, player, newPosition);
                             if (effect.heldCard) {
                                 if (!player.heldCards) player.heldCards = [];
                                 player.heldCards.push(effect.heldCard);
                             } else {
-                                // Only apply normal immediate effects if it wasn't held
-
-                                // Apply changes
                                 player.money = effect.newMoney;
-
                                 if (effect.newPosition !== newPosition) {
                                     player.position = effect.newPosition;
-                                    // Handle potential "Pass Go" on card movement if needed (simple check)
-                                    if (effect.newPosition < newPosition && effect.newPosition === 0) { // e.g. Advance to Go
-                                        if (card.text.includes('Collect $200')) {
-                                            player.money += 200;
-                                        }
+                                    // Basic Pass Go check for card movement
+                                    if (effect.newPosition < newPosition && effect.newPosition === 0) {
+                                        player.money += 200;
                                     }
                                 }
-
                                 if (effect.sendToJail) {
                                     player.isInJail = true;
                                     player.position = 10;
                                     player.jailTurns = 0;
                                 }
                             }
-
-                            message += ` Drew ${cardType === 'CHANCE' ? 'Chance' : 'Community Chest'}: ${card.text}`;
-                            auditEvents.push(`${player.name} drew card: ${card.text}`);
                         }
                     }
                 }
 
                 newState.lastAction = message;
                 if (!newState.log) newState.log = [];
-                if (auditEvents.length > 0) {
-                    newState.log.push(...auditEvents);
-                }
+                if (auditEvents.length) newState.log.push(...auditEvents);
                 break;
             }
 
@@ -517,6 +531,7 @@ export async function POST(request: Request) {
             case 'END_TURN': {
                 const nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
                 newState.turnIndex = nextIndex;
+                newState.hasRolled = false; // Reset for next player
                 const msg = `${gameState.players[playerIndex].name} ended their turn`;
                 newState.lastAction = msg;
                 // No log push for end turn

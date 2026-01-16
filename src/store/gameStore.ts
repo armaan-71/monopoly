@@ -23,6 +23,8 @@ const INITIAL_STATE: Omit<GameStore, 'setGameState' | 'setRoomCode' | 'updatePla
     isGameStarted: false,
     winner: null,
     currentCard: null,
+    auction: null,
+    hasRolled: false,
 };
 
 export const useGameStore = create<GameStore>()(

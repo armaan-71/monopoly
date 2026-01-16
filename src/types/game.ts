@@ -63,4 +63,5 @@ export interface GameState {
     winner: PlayerId | null;
     currentCard: Card | null;
     auction: AuctionState | null;
+    hasRolled: boolean;
 }
