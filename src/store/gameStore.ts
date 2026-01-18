@@ -25,6 +25,7 @@ const INITIAL_STATE: Omit<GameStore, 'setGameState' | 'setRoomCode' | 'updatePla
     currentCard: null,
     auction: null,
     hasRolled: false,
+    trades: [], // Initialize trades
 };
 
 export const useGameStore = create<GameStore>()(

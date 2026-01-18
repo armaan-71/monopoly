@@ -1,18 +1,20 @@
-'use client';
-
 import { useState } from 'react';
 import {
     Box, Typography, Paper, Chip,
     Dialog, DialogTitle, DialogContent,
-    Grid, Button, useTheme
+    Grid, Button, useTheme, IconButton, Tooltip
 } from '@mui/material';
 import { useGameStore } from '@/store/gameStore';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 import { PropertyGroup } from '@/types/game';
+import HandshakeIcon from '@mui/icons-material/Handshake';
+import TradeModal from './TradeModal';
+import ActiveTradesList from './ActiveTradesList';
 
 export default function PropertyDashboard({ playerId, roomId, onPropertyClick }: { playerId: string; roomId: string; onPropertyClick?: (id: number) => void }) {
     const theme = useTheme();
     const { players, properties, code } = useGameStore();
+    const [tradeOpen, setTradeOpen] = useState(false);
 
     const me = players.find(p => p.id === playerId);
     // Find all properties owned by me
@@ -39,46 +41,52 @@ export default function PropertyDashboard({ playerId, roomId, onPropertyClick }:
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} playerId={playerId} roomId={roomId} />
+
             {/* Permanent Quit/Bankruptcy Option */}
             <Paper sx={{ p: 2, bgcolor: theme.palette.background.paper }}>
-                <Button
-                    variant="outlined"
-                    color="error"
-                    fullWidth
-                    size="large"
-                    sx={{
-                        borderWidth: 2,
-                        fontWeight: 'bold',
-                        '&:hover': { borderWidth: 2, bgcolor: 'error.light', color: 'white', borderColor: 'error.main' },
-                        ...(me && me.money < 0 ? {
-                            bgcolor: theme.palette.error.main,
-                            color: 'white',
-                            animation: 'pulse 1.5s infinite',
-                            '&:hover': { bgcolor: theme.palette.error.dark }
-                        } : {})
-                    }}
-                    onClick={async () => {
-                        const isDebt = (me?.money || 0) < 0;
-                        const msg = isDebt
-                            ? "Declare Bankruptcy? This will surrender all assets and remove you from the game."
-                            : "Quit Game? This will surrender your assets and remove you from the game.";
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        size="large"
+                        startIcon={<HandshakeIcon />}
+                        onClick={() => setTradeOpen(true)}
+                        disabled={!me || me.isBankrupt}
+                        sx={{ fontWeight: 'bold' }}
+                    >
+                        Trade
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={async () => {
+                            const isDebt = (me?.money || 0) < 0;
+                            const msg = isDebt
+                                ? "Declare Bankruptcy? This will surrender all assets and remove you from the game."
+                                : "Quit Game? This will surrender your assets and remove you from the game.";
 
-                        if (!confirm(msg)) return;
+                            if (!confirm(msg)) return;
 
-                        await fetch('/api/game/action', {
-                            method: 'POST',
-                            body: JSON.stringify({ roomId, playerId, action: 'DECLARE_BANKRUPTCY' })
-                        });
-                    }}
-                >
-                    {me && me.money < 0 ? "⚠ DECLARE BANKRUPTCY" : "DECLARE BANKRUPTCY"}
-                </Button>
+                            await fetch('/api/game/action', {
+                                method: 'POST',
+                                body: JSON.stringify({ roomId, playerId, action: 'DECLARE_BANKRUPTCY' })
+                            });
+                        }}
+                        sx={{ minWidth: 50, px: 1 }}
+                    >
+                        ⚠
+                    </Button>
+                </Box>
                 {me && me.money < 0 && (
                     <Typography variant="caption" color="error" align="center" display="block" sx={{ mt: 1, fontWeight: 'bold' }}>
                         You are in debt! You must resolve this or quit.
                     </Typography>
                 )}
             </Paper>
+
+            <ActiveTradesList playerId={playerId} roomId={roomId} />
 
             <Paper sx={{ p: 2, minHeight: '300px' }}>
                 <Typography variant="h6" gutterBottom>

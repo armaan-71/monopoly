@@ -65,4 +65,21 @@ export interface GameState {
     currentCard: Card | null;
     auction: AuctionState | null;
     hasRolled: boolean;
+    trades: TradeOffer[];
+}
+
+export interface TradeOffer {
+    id: string;
+    fromPlayerId: string;
+    toPlayerId: string;
+    offering: {
+        properties: number[]; // propertyIds
+        money: number;
+    };
+    requesting: {
+        properties: number[]; // propertyIds
+        money: number;
+    };
+    status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+    createdAt: number;
 }

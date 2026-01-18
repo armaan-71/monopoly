@@ -4,11 +4,14 @@ import { GameState } from '@/types/game';
 import { rollDice, getNextPosition, canBuyProperty, didPassGo, calculateRent, handleSpecialTile, canMortgage, canUnmortgage, getMortgageValue, getUnmortgageCost, drawCard, applyCardEffect, canBuildHouse, canSellHouse } from '@/utils/gameLogic';
 import { BOARD_CONFIG } from '@/constants/boardConfig';
 
-type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE' | 'PAY_BAIL' | 'USE_GOJF' | 'DECLINE_BUY' | 'PLACE_BID' | 'FOLD_AUCTION' | 'RESOLVE_AUCTION' | 'DECLARE_BANKRUPTCY';
+type ActionType = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'MORTGAGE' | 'UNMORTGAGE' | 'DISMISS_CARD' | 'BUILD_HOUSE' | 'SELL_HOUSE' | 'PAY_BAIL' | 'USE_GOJF' | 'DECLINE_BUY' | 'PLACE_BID' | 'FOLD_AUCTION' | 'RESOLVE_AUCTION' | 'DECLARE_BANKRUPTCY' | 'PROPOSE_TRADE' | 'CANCEL_TRADE' | 'REJECT_TRADE' | 'ACCEPT_TRADE';
 
 export async function POST(request: Request) {
     try {
-        const { roomId, playerId, action, propertyId, amount } = await request.json();
+        const body = await request.json();
+        const { roomId, playerId, action, propertyId, amount, targetPlayerId, offering, requesting, tradeId } = body;
+
+        console.log(`[API] Action: ${action}, Player: ${playerId}, TradeID: ${tradeId}`);
 
         // 1. Fetch current game state
         const { data: room, error: roomError } = await supabase
@@ -32,7 +35,7 @@ export async function POST(request: Request) {
         // Exception: PAY_BAIL / USE_GOJF can happen if in jail (blocked state)
         // Exception: PLACE_BID / FOLD_AUCTION can happen by ANYONE during auction
         const isTurn = gameState.turnIndex === playerIndex;
-        const allowedOutOfTurn = ['PAY_BAIL', 'USE_GOJF', 'PLACE_BID', 'FOLD_AUCTION'];
+        const allowedOutOfTurn = ['PAY_BAIL', 'USE_GOJF', 'PLACE_BID', 'FOLD_AUCTION', 'PROPOSE_TRADE', 'CANCEL_TRADE', 'REJECT_TRADE', 'ACCEPT_TRADE'];
 
         if (!isTurn && !allowedOutOfTurn.includes(action)) {
             return NextResponse.json({ error: 'Not your turn' }, { status: 403 });
@@ -586,7 +589,157 @@ export async function POST(request: Request) {
                 break;
             }
 
-            default:
+
+            case 'PROPOSE_TRADE': {
+                // Logic:
+                const player = newState.players[playerIndex];
+                const target = newState.players.find(p => p.id === targetPlayerId);
+
+                if (!target) return NextResponse.json({ error: 'Target player not found' }, { status: 400 });
+                if (player.id === target.id) return NextResponse.json({ error: 'Cannot trade with yourself' }, { status: 400 });
+
+                // Validate Ownership
+                // Offering
+                if (offering.money > player.money) return NextResponse.json({ error: 'Insufficient funds' }, { status: 400 });
+                for (const pid of offering.properties) {
+                    if (newState.properties[pid]?.owner !== player.id) return NextResponse.json({ error: `You do not own ${pid}` }, { status: 400 });
+                    // Can trade mortgaged? Yes.
+                    // Can trade houses? No, must sell houses first.
+                    if (newState.properties[pid].houses > 0) return NextResponse.json({ error: `Must sell buildings on ${pid} first` }, { status: 400 });
+                }
+
+                // Requesting
+                if (requesting.money > target.money) return NextResponse.json({ error: 'Target has insufficient funds' }, { status: 400 });
+                for (const pid of requesting.properties) {
+                    if (newState.properties[pid]?.owner !== target.id) return NextResponse.json({ error: `Target does not own ${pid}` }, { status: 400 });
+                    if (newState.properties[pid].houses > 0) return NextResponse.json({ error: `Target must sell buildings on ${pid} first` }, { status: 400 });
+                }
+
+                // Create Trade
+                const tradeId = crypto.randomUUID();
+                const trade = {
+                    id: tradeId,
+                    fromPlayerId: player.id,
+                    toPlayerId: target.id,
+                    offering,
+                    requesting,
+                    status: 'pending' as const,
+                    createdAt: Date.now()
+                };
+
+                if (!newState.trades) newState.trades = [];
+                newState.trades.push(trade);
+
+                const msg = `${player.name} proposed a trade to ${target.name}`;
+                newState.lastAction = msg;
+                if (!newState.log) newState.log = [];
+                newState.log.push(msg);
+                break;
+            }
+
+            case 'CANCEL_TRADE': {
+                // Assuming tradeId is available in scope (will fix via top-edit)
+                const tradeIndex = (newState.trades || []).findIndex(t => t.id === tradeId);
+                if (tradeIndex === -1) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+
+                const trade = newState.trades[tradeIndex];
+                if (trade.fromPlayerId !== playerId) return NextResponse.json({ error: 'Not your trade' }, { status: 403 });
+                if (trade.status !== 'pending') return NextResponse.json({ error: 'Trade already finalized' }, { status: 400 });
+
+                trade.status = 'cancelled';
+                // Optionally remove it or keep history? Keep history for now or just filter out?
+                // Let's keep it but maybe UI filters it.
+                // Or remove to save space.
+                newState.trades.splice(tradeIndex, 1);
+
+                newState.lastAction = 'Trade cancelled';
+                break;
+            }
+
+            case 'REJECT_TRADE': {
+                // Payload: tradeId
+                const tradeIndex = (newState.trades || []).findIndex(t => t.id === tradeId);
+                if (tradeIndex === -1) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+
+                const trade = newState.trades[tradeIndex];
+                if (trade.toPlayerId !== playerId) return NextResponse.json({ error: 'Not offered to you' }, { status: 403 });
+                if (trade.status !== 'pending') return NextResponse.json({ error: 'Trade already finalized' }, { status: 400 });
+
+                trade.status = 'rejected';
+                // Keep for a bit so sender sees it? 
+                // Or remove. Let's remove for MVP simplicity, maybe log it.
+                newState.trades.splice(tradeIndex, 1);
+
+                const target = newState.players.find(p => p.id === playerId);
+                const sender = newState.players.find(p => p.id === trade.fromPlayerId);
+                const msg = `${target?.name} rejected trade from ${sender?.name}`;
+                newState.lastAction = msg;
+                newState.log.push(msg);
+                break;
+            }
+
+            case 'ACCEPT_TRADE': {
+                // Payload: tradeId
+                const tradeIndex = (newState.trades || []).findIndex(t => t.id === tradeId);
+                console.log(`[ACCEPT_TRADE] Searching for tradeId: ${tradeId}. Found index: ${tradeIndex}`);
+
+                if (tradeIndex === -1) {
+                    console.log('[ACCEPT_TRADE] Trade not found');
+                    return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+                }
+
+                const trade = newState.trades[tradeIndex];
+                if (trade.toPlayerId !== playerId) {
+                    console.log(`[ACCEPT_TRADE] Not offered to you. Target: ${trade.toPlayerId}. Me: ${playerId}`);
+                    return NextResponse.json({ error: 'Not offered to you' }, { status: 403 });
+                }
+                if (trade.status !== 'pending') {
+                    console.log('[ACCEPT_TRADE] Trade not pending');
+                    return NextResponse.json({ error: 'Trade already finalized' }, { status: 400 });
+                }
+
+                const sender = newState.players.find(p => p.id === trade.fromPlayerId);
+                const receiver = newState.players.find(p => p.id === trade.toPlayerId);
+
+                if (!sender || !receiver) return NextResponse.json({ error: 'Player missing' }, { status: 500 });
+
+                // RE-VALIDATE OWNERSHIP (Critical race condition check)
+                // Sender Assets
+                if (sender.money < trade.offering.money) return NextResponse.json({ error: 'Sender insufficient funds' }, { status: 400 });
+                for (const pid of trade.offering.properties) {
+                    if (newState.properties[pid]?.owner !== sender.id) return NextResponse.json({ error: 'Sender no longer owns properties' }, { status: 400 });
+                }
+                // Receiver Assets
+                if (receiver.money < trade.requesting.money) return NextResponse.json({ error: 'You have insufficient funds' }, { status: 400 });
+                for (const pid of trade.requesting.properties) {
+                    if (newState.properties[pid]?.owner !== receiver.id) return NextResponse.json({ error: 'You no longer own properties' }, { status: 400 });
+                }
+
+                // EXECUTE SWAP
+                // Money
+                sender.money -= trade.offering.money;
+                receiver.money += trade.offering.money;
+
+                receiver.money -= trade.requesting.money;
+                sender.money += trade.requesting.money;
+
+                // Properties
+                trade.offering.properties.forEach(pid => {
+                    newState.properties[pid].owner = receiver.id;
+                });
+                trade.requesting.properties.forEach(pid => {
+                    newState.properties[pid].owner = sender.id;
+                });
+
+                // Close Trade
+                trade.status = 'accepted';
+                newState.trades.splice(tradeIndex, 1);
+
+                const msg = `${sender.name} and ${receiver.name} completed a trade!`;
+                newState.lastAction = msg;
+                newState.log.push(msg);
+                break;
+            }
                 return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
         }
 
