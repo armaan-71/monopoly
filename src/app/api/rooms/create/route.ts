@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { GameState } from '@/types/game';
+import { NextResponse } from 'next/server';
 
 // Helper to generate a random 4-letter code
 const generateRoomCode = () => {
@@ -23,7 +23,8 @@ const INITIAL_GAME_STATE: GameState = {
     currentCard: null,
     log: ['Game created'],
     auction: null,
-    hasRolled: false
+    hasRolled: false,
+    trades: []
 };
 
 export async function POST() {
