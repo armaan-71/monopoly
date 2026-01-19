@@ -1,23 +1,23 @@
-import { NextResponse } from "next/server";
+import { BOARD_CONFIG } from "@/constants/boardConfig";
 import { supabase } from "@/lib/supabase";
 import { GameState } from "@/types/game";
 import {
-  rollDice,
-  getNextPosition,
-  canBuyProperty,
-  didPassGo,
-  calculateRent,
-  handleSpecialTile,
-  canMortgage,
-  canUnmortgage,
-  getMortgageValue,
-  getUnmortgageCost,
-  drawCard,
   applyCardEffect,
+  calculateRent,
   canBuildHouse,
+  canBuyProperty,
+  canMortgage,
   canSellHouse,
+  canUnmortgage,
+  didPassGo,
+  drawCard,
+  getMortgageValue,
+  getNextPosition,
+  getUnmortgageCost,
+  handleSpecialTile,
+  rollDice,
 } from "@/utils/gameLogic";
-import { BOARD_CONFIG } from "@/constants/boardConfig";
+import { NextResponse } from "next/server";
 
 type ActionType =
   | "ROLL_DICE"
@@ -38,7 +38,8 @@ type ActionType =
   | "PROPOSE_TRADE"
   | "CANCEL_TRADE"
   | "REJECT_TRADE"
-  | "ACCEPT_TRADE";
+  | "ACCEPT_TRADE"
+  | "RESET_GAME";
 
 export async function POST(request: Request) {
   try {
@@ -71,6 +72,9 @@ export async function POST(request: Request) {
     }
 
     const gameState = room.game_state as GameState;
+
+    // For RESET_GAME, we might not strictly need a playerIndex if anyone can reset contextually (e.g. winner)
+    // But usually we want to ensure the requester is part of the game.
     const playerIndex = gameState.players.findIndex((p) => p.id === playerId);
 
     if (playerIndex === -1) {
@@ -81,8 +85,6 @@ export async function POST(request: Request) {
     }
 
     // Basic Turn Validation
-    // Exception: PAY_BAIL / USE_GOJF can happen if in jail (blocked state)
-    // Exception: PLACE_BID / FOLD_AUCTION can happen by ANYONE during auction
     const isTurn = gameState.turnIndex === playerIndex;
     const allowedOutOfTurn = [
       "PAY_BAIL",
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
       "CANCEL_TRADE",
       "REJECT_TRADE",
       "ACCEPT_TRADE",
+      "RESET_GAME", // Allow reset whenever (game over usually)
     ];
 
     if (!isTurn && !allowedOutOfTurn.includes(action)) {
@@ -107,6 +110,48 @@ export async function POST(request: Request) {
 
     // 2. Process Action
     switch (action as ActionType) {
+      case "RESET_GAME": {
+        if (!newState.winner && newState.isGameStarted) {
+          // Prevent accidental reset during active game?
+          // For now, allow it if UI calls it (e.g. debug or explicit "Abort Game")
+          // but mostly intended for Game Over screen.
+        }
+
+        // Reset Players
+        newState.players = newState.players.map((p) => ({
+          ...p,
+          money: 1500,
+          position: 0,
+          isInJail: false,
+          jailTurns: 0,
+          heldCards: [],
+          isBankrupt: false,
+        }));
+
+        // Reset Properties
+        Object.keys(newState.properties).forEach((key) => {
+          newState.properties[parseInt(key)] = {
+            owner: null,
+            houses: 0,
+            isMortgaged: false,
+          };
+        });
+
+        // Reset Game State
+        newState.turnIndex = 0;
+        newState.lastAction = "Game Reset";
+        newState.log = ["New Game Ready"];
+        newState.dice = [1, 1];
+        newState.isGameStarted = false;
+        newState.winner = null;
+        newState.currentCard = null;
+        newState.auction = null;
+        newState.hasRolled = false;
+        newState.trades = [];
+
+        break;
+      }
+
       case "ROLL_DICE": {
         if (newState.hasRolled && !newState.players[playerIndex].isInJail) {
           return NextResponse.json(
@@ -740,7 +785,19 @@ export async function POST(request: Request) {
         if (!newState.log) newState.log = [];
         newState.log.push(msg);
 
-        // 4. Force End Turn
+        // 4. Check for Winner (Last Man Standing)
+        const activePlayers = newState.players.filter((p) => !p.isBankrupt);
+        if (activePlayers.length === 1) {
+          const winner = activePlayers[0];
+          newState.winner = winner.id;
+          newState.isGameStarted = false;
+          newState.log.push(`🏆 GAME OVER! ${winner.name} is the WINNER! 🏆`);
+          // No need to set turn index if game is over
+          break;
+        }
+
+        // 5. Force End Turn (if game continues)
+        // Find next valid player
         // Find next valid player
         let nextIndex = (gameState.turnIndex + 1) % gameState.players.length;
         let attempts = 0;

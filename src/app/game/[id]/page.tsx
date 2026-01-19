@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { Box, Container, Typography, Paper } from "@mui/material";
 import Board from "@/components/board/Board";
-import GameControls from "@/components/game/GameControls";
-import PropertyDashboard from "@/components/game/PropertyDashboard";
-import GameInfoPanel from "@/components/game/GameInfoPanel";
-import PropertyDetailsDialog from "@/components/game/PropertyDetailsDialog";
-import CardDialog from "@/components/game/CardDialog";
 import AuctionModal from "@/components/game/AuctionModal";
+import CardDialog from "@/components/game/CardDialog";
+import GameControls from "@/components/game/GameControls";
+import GameInfoPanel from "@/components/game/GameInfoPanel";
+import PropertyDashboard from "@/components/game/PropertyDashboard";
+import PropertyDetailsDialog from "@/components/game/PropertyDetailsDialog";
+import WinnerOverlay from "@/components/game/WinnerOverlay";
 import { useRealtimeGame } from "@/hooks/useRealtimeGame";
 import { useGameStore } from "@/store/gameStore";
+import { Box, Container, Typography } from "@mui/material";
+import { use, useEffect, useState } from "react";
 
 export default function GameRoom({
   params,
@@ -56,6 +57,7 @@ export default function GameRoom({
 
       <CardDialog roomId={roomId} playerId={playerId} />
       <AuctionModal roomId={roomId} playerId={playerId} />
+      <WinnerOverlay roomId={roomId} />
 
       <Container maxWidth="xl" disableGutters sx={{ height: "100%" }}>
         {/* Main 3-Column Layout */}
