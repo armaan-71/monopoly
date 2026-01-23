@@ -1,6 +1,6 @@
 import { BOARD_CONFIG } from "@/constants/boardConfig";
-import { PropertyState, GameState, PlayerState } from "@/types/game";
 import { Card, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from "@/constants/cards";
+import { GameState, PlayerState } from "@/types/game";
 
 export const rollDice = (): [number, number] => {
   return [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
@@ -85,6 +85,14 @@ export const calculateRent = (
   // Standard Properties (Colors)
   if (propertyDef.rent) {
     const houses = propertyState.houses || 0;
+
+    // If 0 houses, check for monopoly (Double Rent)
+    if (houses === 0) {
+      if (hasMonopoly(propertyState.owner, propertyDef.group, gameState)) {
+        return propertyDef.rent[0] * 2;
+      }
+    }
+
     return propertyDef.rent[houses];
   }
 
